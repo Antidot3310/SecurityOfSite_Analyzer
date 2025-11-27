@@ -71,8 +71,8 @@ def main():
     forms = extract_forms(html)
     print(f"Parsed site: {url}")
     print(json.dumps([form.to_dict() for form in forms], indent=2))
-    # with open("forms.json", "w", encoding = "utf-8") as file:
-    #   json.dump(forms, file, indent = 2)
+    with open("forms.json", "w", encoding="utf-8") as file:
+        json.dump([form.to_dict() for form in forms], file, indent=2)
 
 
 if __name__ == "__main__":
