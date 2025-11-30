@@ -66,7 +66,7 @@ def extract_forms(html: str) -> List[Form]:
 
 
 def main():
-    url = sys.argv[1] if len(sys.argv) > 1 else "file://./src/ex2.html"
+    url = sys.argv[1] if len(sys.argv) > 1 else "file://D:/Project/src/local.html"
     html = fetch_html(url)
     forms = extract_forms(html)
     print(f"Parsed site: {url}")

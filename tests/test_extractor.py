@@ -9,14 +9,14 @@ from src.extractor import *
 
 
 def test_fetch_html_local_sample():
-    local_html = root + "/src/ex2.html"
+    local_html = root + "/src/local.html"
     html = fetch_html(f"file://{local_html}")
     assert html is not None
     assert "<form" in html
 
 
 def test_extract_forms_sample():
-    local_html = root + "/src/ex2.html"
+    local_html = root + "/src/local.html"
     html = fetch_html(f"file://{local_html}")
     forms = extract_forms(html)
     assert isinstance(forms, list)

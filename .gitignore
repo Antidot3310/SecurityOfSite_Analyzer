@@ -1,3 +1,29 @@
+# virtualenv
 venv/
+.env
+.env.* 
+
+# Byte-compiled / cache
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Logs and local data
+*.log
+results.json
+debug.log
+
+# VS Code
+.vscode/
+
+# Pytest cache
+.pytest_cache/
+
+# SQLite and DB files
+*.db
+*.sqlite3
+
+# Distribution / build
+build/
+dist/
+*.egg-info/

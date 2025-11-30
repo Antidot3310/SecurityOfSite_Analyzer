@@ -52,7 +52,7 @@ def main():
 
     sources = [
         # "https://httpbin.org/get",
-        "file://./src/ex2.html",
+        "file://./src/local.html",
         # "https://chat.deepseek.com/a/chat/s/839531b0-44ff-48c8-810e-42560871fa6a",
         # "https://www.youtube.com/",
     ]

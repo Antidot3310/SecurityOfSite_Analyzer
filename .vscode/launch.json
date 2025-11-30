@@ -12,9 +12,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": true,
-            "args": [
-                "https://edurfe.bsu.by/login/index.php"
-            ]
+            "args": []
         }
     ]
 }

@@ -1,0 +1,13 @@
+[
+  {
+    "action": null,
+    "method": "get",
+    "inputs": [
+      {
+        "name": "a",
+        "type": null,
+        "value": null
+      }
+    ]
+  }
+]
