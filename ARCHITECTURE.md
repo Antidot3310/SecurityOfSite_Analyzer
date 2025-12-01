@@ -16,13 +16,14 @@
 - `src/app.py`
   - Flask-приложение с endpoint `/api/parse?url=...` для вызова `extractor` и получения JSON-отчёта.
 
-- `src/storage/` (планируется)
-  - Интерфейс для сохранения результатов (SQLite). В MVP можно хранить JSON; позже — sqlite + simple schema.
-
 - `tests/`
   - Unit-тесты: `test_extractor.py`, `test_parse.py`, `test_parse_line.py`, `test_app.py`
   - Тесты запускаются через `pytest`.
 
+- `storage`
+  - Утилиты работы с базой данных (создание, сохранение и получение данных) 
+    `db.py`, таблица scans (target (url), results.json, count(количесвто форм), status_code(код запроса), response_size(размер html))
+  - `data.db` - хранилище запросов
 ---
 
 ## Поток данных (data flow)
@@ -30,12 +31,3 @@
 2. `fetch_html` получает HTML.
 3. `extract_forms` превращает HTML в объекты `Form`.
 4. Результат сериализуется в JSON (`results.json`) и/или возвращается через HTTP API.
-
----
-
-## Параметры запуска / dev
-- Виртуальное окружение: `python -m venv venv`
-- Установка зависимостей: `pip install -r requirements.txt`
-- Локальный запуск extractor:  
-  `python src/extractor.py file://./src/sample1.html`
-- Тесты: `pytest -q`
