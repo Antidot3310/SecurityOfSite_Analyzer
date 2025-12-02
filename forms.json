@@ -1,0 +1,168 @@
+[
+  {
+    "action": "/submit",
+    "method": "POST",
+    "enctype": null,
+    "form_id": "main-form",
+    "classes": [],
+    "inputs": [
+      {
+        "name": "username",
+        "field_type": "text",
+        "value": null,
+        "required": true,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "email",
+        "field_type": "email",
+        "value": null,
+        "required": true,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "password",
+        "field_type": "password",
+        "value": null,
+        "required": true,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "remember",
+        "field_type": "checkbox",
+        "value": "yes",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "gender",
+        "field_type": "radio",
+        "value": "male",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "gender",
+        "field_type": "radio",
+        "value": "female",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "country",
+        "field_type": "select",
+        "value": [
+          {
+            "value": "us",
+            "text": "United States",
+            "selected": false
+          },
+          {
+            "value": "ca",
+            "text": "Canada",
+            "selected": false
+          },
+          {
+            "value": "uk",
+            "text": "United Kingdom",
+            "selected": false
+          }
+        ],
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "message",
+        "field_type": "textarea",
+        "value": null,
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "csrf_token",
+        "field_type": "hidden",
+        "value": "abc123",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      }
+    ]
+  },
+  {
+    "action": "/search",
+    "method": "GET",
+    "enctype": null,
+    "form_id": null,
+    "classes": [
+      "search-form"
+    ],
+    "inputs": [
+      {
+        "name": "q",
+        "field_type": "search",
+        "value": null,
+        "required": false,
+        "placeholder": "Search...",
+        "meta": {}
+      },
+      {
+        "name": null,
+        "field_type": "submit",
+        "value": "Search",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      }
+    ]
+  },
+  {
+    "action": "/default",
+    "method": "get",
+    "enctype": null,
+    "form_id": null,
+    "classes": [],
+    "inputs": [
+      {
+        "name": "default_field",
+        "field_type": "text",
+        "value": null,
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      }
+    ]
+  },
+  {
+    "action": "/upload",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "form_id": null,
+    "classes": [],
+    "inputs": [
+      {
+        "name": "file_upload",
+        "field_type": "file",
+        "value": null,
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": null,
+        "field_type": "submit",
+        "value": "Upload",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      }
+    ]
+  }
+]

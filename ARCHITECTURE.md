@@ -4,7 +4,8 @@
 - `src/extractor.py`
   - `fetch_html(target: str) -> str` — получает HTML из `file://` или HTTP/HTTPS.
   - `extract_forms(html: str) -> List[Form]` — парсит HTML, возвращает объекты `Form` и `InputField`.
-  - Модели: `Form` (action, method, inputs), `InputField` (name, type, value).
+  - `parse_*_tag` - парсит поля textarea, input, select по их аттрибутам
+  - Модели: `Form` (action, method, inputs, form_id, classes, enctype), `InputField` (name, type, value, required, placeholder).
   - Сохраняет результаты в `results.json` (MVP).
 
 - `src/parse_line.py`
