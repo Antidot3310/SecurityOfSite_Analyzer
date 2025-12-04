@@ -1,10 +1,9 @@
 from typing import List, Optional
 import requests
-import time
+from time import sleep, monotonic
 
 from .detectors import *
-from .types import VulnType, Severity, MatchType, Payload
-from .payloads import load_payloads
+from .types import Payload
 
 
 class Finding:
@@ -46,14 +45,20 @@ class ResponseSnapshot:
         }
 
 
+def build_test_data(base_data: dict, input: dict, payload: Payload) -> dict:
+    data = base_data.copy()
+    name = input.get("name")
+    data[name] = payload.payload
+    return data
+
+
 def build_base_line(inputs: List[dict]) -> dict:
     data = {}
     for inp in inputs:
         name = inp.get("name")
         if not name:
             continue
-        elif inp.get("value"):
-            data[name] = inp.get("value", "")
+        data[name] = inp.get("value", "")
     return data
 
 
@@ -69,12 +74,12 @@ def send_form_request(
     headers = {"User-Agent": "MPV-Scanner/0.1"}
 
     try:
-        start = time.monotonic()
+        start = monotonic()
         if method == "POST":
             resp = requests.post(action, data=data, timeout=timeout, headers=headers)
         else:
             resp = requests.get(action, params=data, timeout=timeout, headers=headers)
-        elapsed = (time.monotonic() - start) * 1000
+        elapsed = (monotonic() - start) * 1000
     except requests.RequestException as e:
         print(f"Request failed: {e}")
         return None
@@ -89,44 +94,68 @@ def send_form_request(
     return snapshot
 
 
-def scan_forms(forms: List[dict]) -> List[Finding]:
+def scan_field(
+    form: dict,
+    inp: dict,
+    base_line_snapshot: ResponseSnapshot,
+    payloads: List[Payload],
+    base_data: dict,
+) -> List[Finding]:
     findings = []
     RATE_LIMIT_MS = 500
-    for form in forms:
-        data = build_base_line(form["inputs"])
-        base_line_snapshot = send_form_request(form, data)
-        if not base_line_snapshot:
+
+    name = inp.get("name")
+    ftype = inp.get("type", "text").lower()
+    if not name or ftype not in ("text", "search", "textarea", "url", "email", "tel"):
+        return []
+
+    for payload in payloads:
+        test_data = build_test_data(base_data, inp, payload)
+        test_snapshot = send_form_request(form, test_data)
+        sleep(RATE_LIMIT_MS / 1000)
+        if not test_snapshot:
             continue
-        for inp in form["inputs"]:
-            name = inp.get("name")
-            ftype = inp.get("type", "text").lower()
-            if name is None:
-                continue
-            if ftype not in ("text", "search", "textarea", "url", "email", "tel"):
-                continue
-            for payload in payloads_list:
-                test_data = data.copy()
-                test_data[name] = payload.payload
-                test_snapshot = send_form_request(form, test_data)
-                sleep(RATE_LIMIT_MS / 1000)
-                if not test_snapshot:
-                    continue
-                det_res = run_detectors(base_line_snapshot, test_snapshot, payload)
-                for dr in det_res:
-                    if dr["matched"]:
-                        finding = {
-                            "form_id": form.get("form_id"),
-                            "field_name": name,
-                            "payload_id": payload.payload_id,
-                            "vuln_type": payload.vuln_type,
-                            "severity": payload.severity,
-                            "evidence": dr["evidence"],
-                            "meta": {
-                                "status": test_snapshot.status_code,
-                                "time_ms": test_snapshot.response_time,
-                                "body_len": test_snapshot.body_len,
-                                "url": test_snapshot.url,
-                            },
-                        }
-                        findings.append(finding)
+
+        det_res = run_detectors(
+            base=base_line_snapshot, injected=test_snapshot, payload=payload
+        )
+        for dr in det_res:
+            if dr["matched"]:
+                findings.append(
+                    Finding(
+                        form_index=form.get("form_id"),
+                        field_name=name,
+                        payload=payload,
+                        evidence=dr.get("evidence"),
+                    )
+                )
+    return findings
+
+
+def scan_form(form: dict, payloads: List[Payload]) -> List[Finding]:
+    findings = []
+    inputs = form.get("inputs", [])
+    base_data = build_base_line(inputs)
+    base_line_snapshot = send_form_request(form, base_data)
+    if not base_line_snapshot:
+        return []
+
+    for inp in inputs:
+        findings.extend(
+            scan_field(
+                form=form,
+                inp=inp,
+                payloads=payloads,
+                base_line_snapshot=base_line_snapshot,
+                base_data=base_data,
+            )
+        )
+
+    return findings
+
+
+def scan_forms(forms: List[dict], payloads: List[Payload]) -> List[Finding]:
+    findings = []
+    for form in forms:
+        findings.extend(scan_form(form=form, payloads=payloads))
     return findings
