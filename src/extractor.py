@@ -2,6 +2,7 @@ import sys
 import json
 from typing import List, Optional
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 import requests
 
 
@@ -99,11 +100,12 @@ def parse_select_tag(select_tag) -> InputField:
     return InputField(name, field_type, value, required, placeholder, meta)
 
 
-def extract_forms(html: str) -> List[Form]:
+def extract_forms(html: str, url: str) -> List[Form]:
     soup = BeautifulSoup(html, "lxml")
     forms = []
     for form in soup.find_all("form"):
-        action = form.get("action")
+        action = form.get("action") or ""
+        action = urljoin(url, action) if action else url
         method = form.get("method", "get")
         form_id = form.get("id") or None
         classes = form.get("class")
@@ -144,9 +146,11 @@ def fetch_html(url: str, timeout: int = 4):
 
 
 def main():
-    url = sys.argv[1] if len(sys.argv) > 1 else "file://D:/Project/src/local.html"
+    url = (
+        sys.argv[1] if len(sys.argv) > 1 else "http://google.com"
+    )  # "file://D:/Project/src/local.html"
     html = fetch_html(url)
-    forms = extract_forms(html)
+    forms = extract_forms(html, url)
     print(f"Parsed site: {url}")
     print(json.dumps([form.to_dict() for form in forms], indent=2))
     with open("forms.json", "w", encoding="utf-8") as file:

