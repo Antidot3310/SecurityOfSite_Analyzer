@@ -24,13 +24,13 @@ def api_parse():
             html = fetch_html(url)
             if html is None:
                 return jsonify({"error": "failed to fetch html"})
-            forms = extract_forms(html)
+            forms = extract_forms(html, url)
             res = [form.to_dict() for form in forms]
             scan_id = save_scan(
                 target=url,
                 results_json=json.dumps(res),
                 meta={
-                    "count": len(res),  
+                    "count": len(res),
                     "status_code": 200,
                     "response_size": len(html),
                 },

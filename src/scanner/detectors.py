@@ -98,7 +98,7 @@ def detect_sql_error(
 def detect_time_delay(
     base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
 ) -> dict:
-    threshold_ms = 4000  # ms
+    threshold_ms = 2000  # ms
     if injected.response_time - base.response_time > threshold_ms:
         return {
             "matched": True,

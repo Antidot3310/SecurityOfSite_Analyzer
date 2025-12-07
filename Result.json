@@ -1,0 +1,19 @@
+[
+  {
+    "action": "file://C:\\Users\\rosti\\AppData\\Local\\Temp\\pytest-of-rosti\\pytest-43\\test_api_saves_scan0\\s.html",
+    "method": "get",
+    "enctype": null,
+    "form_id": null,
+    "classes": [],
+    "inputs": [
+      {
+        "name": "a",
+        "field_type": "text",
+        "value": null,
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      }
+    ]
+  }
+]

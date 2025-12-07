@@ -100,12 +100,15 @@ def parse_select_tag(select_tag) -> InputField:
     return InputField(name, field_type, value, required, placeholder, meta)
 
 
-def extract_forms(html: str, url: str) -> List[Form]:
+def extract_forms(html: str, url: Optional[str]) -> List[Form]:
     soup = BeautifulSoup(html, "lxml")
     forms = []
     for form in soup.find_all("form"):
-        action = form.get("action") or ""
-        action = urljoin(url, action) if action else url
+        action = form.get("action")
+        if action:
+            action = urljoin(url, action) if url else action
+        else:
+            action = url if url else None
         method = form.get("method", "get")
         form_id = form.get("id") or None
         classes = form.get("class")

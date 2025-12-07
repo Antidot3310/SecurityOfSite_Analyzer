@@ -18,7 +18,7 @@ def test_fetch_html_local_sample():
 def test_extract_forms_sample():
     local_html = root + "/src/local.html"
     html = fetch_html(f"file://{local_html}")
-    forms = extract_forms(html)
+    forms = extract_forms(html, None)
     assert isinstance(forms, list)
 
     first = forms[0]
@@ -38,7 +38,7 @@ def test_select_options():
         </select>
     </form>
     """
-    forms = extract_forms(html)
+    forms = extract_forms(html, None)
     select_field = forms[0].inputs[0]
     assert select_field.name == "choices"
     assert select_field.field_type == "select"
@@ -59,7 +59,7 @@ def test_textarea_and_placeholder():
         <textarea name="comments" placeholder="Enter your comments here" required></textarea>
     </form>
     """
-    forms = extract_forms(html)
+    forms = extract_forms(html, None)
     textarea_field = forms[0].inputs[0]
     assert textarea_field.name == "comments"
     assert textarea_field.field_type == "textarea"
@@ -73,7 +73,7 @@ def test_missing_input_name():
         <input type="text" value="No name attribute">
     </form>
     """
-    forms = extract_forms(html)
+    forms = extract_forms(html, None)
     input_field = forms[0].inputs[0]
     assert input_field.name is None
     assert input_field.field_type == "text"

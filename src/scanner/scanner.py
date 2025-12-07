@@ -2,7 +2,7 @@ from typing import List, Optional
 import requests
 from time import sleep, monotonic
 
-from .detectors import *
+import src.scanner.detectors as detector
 from .types import Payload
 
 
@@ -116,7 +116,7 @@ def scan_field(
         if not test_snapshot:
             continue
 
-        det_res = run_detectors(
+        det_res = detector.run_detectors(
             base=base_line_snapshot, injected=test_snapshot, payload=payload
         )
         for dr in det_res:
