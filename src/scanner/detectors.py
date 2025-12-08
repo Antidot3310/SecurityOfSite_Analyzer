@@ -1,64 +1,18 @@
 from .scanner import ResponseSnapshot, Payload
 from typing import List
+from pathlib import Path
+import json
+import html
+import urllib.parse
+import re
 
-# Если нужен простой список без уровней уверенности
-SQL_ERROR_LIST = [
-    # Самые частые и явные ошибки
-    "you have an error in your sql syntax",
-    "sql syntax error",
-    "unclosed quotation mark",
-    "incorrect syntax near",
-    "syntax error at or near",
-    # MySQL ошибки
-    "mysql_fetch_array",
-    "mysql_fetch_assoc",
-    "mysql_fetch_row",
-    "mysql_num_rows",
-    "mysql_result",
-    "mysql_query",
-    "mysqli_",
-    "mysql_",
-    "warning: mysql",
-    "error 1064",
-    "error 1146",
-    "error 1054",
-    # PostgreSQL
-    "postgresql",
-    "postgres",
-    "pg_",
-    "relation does not exist",
-    "column does not exist",
-    # MSSQL
-    "microsoft sql server",
-    "sql server",
-    "mssql",
-    "incorrect syntax",
-    "invalid column",
-    "invalid object",
-    "msg 102",
-    "msg 207",
-    "msg 208",
-    "odbc",
-    # Oracle
-    "ora-",
-    "oracle",
-    "pl/sql",
-    "plsql",
-    "ora-00933",
-    "ora-00904",
-    "ora-00942",
-    # SQLite
-    "sqlite",
-    "sqlite3",
-    "no such table",
-    "no such column",
-    # Общие
-    "sql error",
-    "database error",
-    "query failed",
-    "unknown column",
-    "table doesn't exist",
-]
+p = Path(__file__).parent / "sql_errors.json"
+try:
+    with open("sql_errors.json", "r", encoding="UTF-8") as f:
+        SQL_ERROR_LIST = json.load(f)
+except Exception as e:
+    print(f"Error within loading sql_errors.json: {str(e)}")
+    SQL_ERROR_LIST = []
 
 
 class DetectedResult:
@@ -73,14 +27,31 @@ class DetectedResult:
         }
 
 
-def detect_reflection(
-    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
-) -> dict:
-    if (
-        payload.payload.lower() in injected.body.lower()
-        and payload.payload.lower() not in base.body.lower()
-    ):
-        return {"matched": True, "evidence": f"Payload reflected: {payload.payload}"}
+def detect_reflection(base, injected, payload):
+    base_lower = (base.body or "").lower()
+    inj_lower = (injected.body or "").lower()
+
+    if "alert(" in payload.payload.lower():
+        search_for = "alert(1)"
+    else:
+        search_for = re.sub(r"[^a-zA-Z0-9]", "", payload.payload)[:8]
+        if len(search_for) < 4:
+            return {"matched": False, "evidence": "", "confidence": 0}
+
+    variants = {search_for, html.escape(search_for), urllib.parse.quote(search_for)}
+
+    for variant in variants:
+        if variant in inj_lower and variant not in base_lower:
+            pos = (injected.body or "").lower().find(variant)
+            if pos != -1:
+                start = max(0, pos - 30)
+                end = pos + len(variant) + 30
+                evidence = (injected.body or "")[start:end]
+                return {
+                    "matched": True,
+                    "evidence": evidence,
+                }
+
     return {"matched": False, "evidence": ""}
 
 

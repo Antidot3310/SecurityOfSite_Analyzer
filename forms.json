@@ -2,9 +2,6 @@
   {
     "action": "http://google.com/search",
     "method": "get",
-    "enctype": null,
-    "form_id": null,
-    "classes": [],
     "inputs": [
       {
         "name": "ie",
@@ -73,7 +70,7 @@
       {
         "name": "iflsig",
         "field_type": "hidden",
-        "value": "AOw8s4IAAAAAaTGoRjJo3FaZtEBhqjVDWjaInjUU1gZX",
+        "value": "AOw8s4IAAAAAaTbucERAGdRxXwv2KeXrvS6fOqxEf8ow",
         "required": false,
         "placeholder": null,
         "meta": {}
@@ -86,6 +83,9 @@
         "placeholder": null,
         "meta": {}
       }
-    ]
+    ],
+    "enctype": null,
+    "form_id": null,
+    "classes": []
   }
 ]

@@ -1,9 +1,9 @@
+import os
 import requests
 from urllib.parse import urlparse
-import os
 
 
-def fetch_info(url: str, timeout: int) -> dict:
+def fetch_info(url: str, timeout: int = 5) -> dict:
     result = {"url": url, "status": None, "length": None, "ok": False, "error": None}
 
     try:
@@ -46,20 +46,3 @@ def fetch_info(url: str, timeout: int) -> dict:
         result.update
         ({"ok": False, "error": str(e)})
     return result
-
-
-def main():
-
-    sources = [
-        # "https://httpbin.org/get",
-        "file://./src/local.html",
-        # "https://chat.deepseek.com/a/chat/s/839531b0-44ff-48c8-810e-42560871fa6a",
-        # "https://www.youtube.com/",
-    ]
-    for url in sources:
-        info = fetch_info(url, 4)
-        print(info)
-
-
-if __name__ == "__main__":
-    main()

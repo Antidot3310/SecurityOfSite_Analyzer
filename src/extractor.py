@@ -1,164 +1,162 @@
-import sys
-import json
-from typing import List, Optional
+from dataclasses import dataclass, asdict, field
+from typing import List, Optional, Any
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 import requests
+from pathlib import Path
 
 
+@dataclass
 class InputField:
-    def __init__(
-        self,
-        name: Optional[str],
-        field_type: Optional[str],
-        value: Optional[str],
-        required: bool,
-        placeholder: Optional[str],
-        meta: Optional[dict],
-    ):
-        self.name = name
-        self.field_type = field_type
-        self.value = value
-        self.required = required
-        self.placeholder = placeholder
-        self.meta = meta
+    name: Optional[str]
+    field_type: Optional[str]
+    value: Optional[str]  # init value
+    required: bool
+    placeholder: Optional[str]  # text when no value is set
+    meta: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "field_type": self.field_type,
-            "value": self.value,
-            "required": self.required,
-            "placeholder": self.placeholder,
-            "meta": self.meta,
-        }
+    @classmethod
+    def from_textarea_tag(cls, tag) -> InputField:
+        return cls(
+            name=tag.get("name"),
+            field_type="textarea",
+            value=tag.text or None,
+            required=tag.has_attr("required"),
+            placeholder=tag.get("placeholder"),
+        )
+
+    @classmethod
+    def from_input_tag(cls, tag) -> InputField:
+        return cls(
+            name=tag.get("name"),
+            field_type=tag.get("type", "text"),
+            value=tag.get("value"),
+            required=tag.has_attr("required"),
+            placeholder=tag.get("placeholder"),
+        )
+
+    @classmethod
+    def from_select_tag(cls, tag) -> InputField:
+        options = []
+        for option in tag.find_all("option"):
+            options.append(
+                {
+                    "value": option.get("value"),
+                    "text": option.text,
+                    "selected": option.has_attr("selected"),
+                }
+            )
+
+        return cls(
+            name=tag.get("name"),
+            field_type="select",
+            value=options,
+            required=tag.has_attr("required"),
+            placeholder=tag.get("placeholder"),
+            meta={"multiple": tag.has_attr("multiple")},
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
+@dataclass
 class Form:
-    def __init__(
-        self,
-        action: Optional[str],
-        method: str,
-        inputs: list[InputField],
-        enctype: Optional[str],
-        form_id: str,
-        classes: str,
-    ):
-        self.action = action
-        self.method = method
-        self.enctype = enctype
-        self.form_id = form_id
-        self.classes = classes
-        self.inputs = inputs
+    action: Optional[str]
+    method: str
+    inputs: list[InputField]
+    enctype: Optional[str]
+    form_id: str
+    classes: list[str]
 
-    def to_dict(self):
-        return {
-            "action": self.action,
-            "method": self.method,
-            "enctype": self.enctype,
-            "form_id": self.form_id,
-            "classes": self.classes,
-            "inputs": [input.to_dict() for input in self.inputs],
-        }
+    def to_dict(self) -> dict[str, Any]:
+        result = asdict(self)
+        result["inputs"] = [input_field.to_dict() for input_field in self.inputs]
+        return result
 
+    @classmethod
+    def from_soup_form(cls, form_tag, base_url: Optional[str] = None) -> Form:
+        action = form_tag.get("action")
+        if action and base_url:
+            action = safe_urljoin(base_url, action)
 
-def parse_input_tag(input_tag) -> InputField:
-    name = input_tag.get("name") or None
-    field_type = input_tag.get("type") or "text"
-    value = input_tag.get("value") or None
-    required = input_tag.has_attr("required")
-    placeholder = input_tag.get("placeholder") or None
-    meta = {}
-    return InputField(name, field_type, value, required, placeholder, meta)
+        return cls(
+            action=action or base_url,
+            method=form_tag.get("method", "get").lower(),
+            enctype=form_tag.get("enctype"),
+            form_id=form_tag.get("id"),
+            classes=form_tag.get("class", []),
+            inputs=parse_form_inputs(form_tag),
+        )
 
 
-def parse_textarea_tag(textarea_tag) -> InputField:
-    name = textarea_tag.get("name")
-    field_type = "textarea"
-    value = textarea_tag.text or None
-    required = textarea_tag.has_attr("required")
-    placeholder = textarea_tag.get("placeholder") or None
-    meta = {}
-    return InputField(name, field_type, value, required, placeholder, meta)
+def safe_urljoin(base: str, url: str) -> str:
+    try:
+        return urljoin(base, url)
+    except Exception as e:
+        print(f"Error during operation urljoin: {str(e)}")
+        return url
 
 
-def parse_select_tag(select_tag) -> InputField:
-    name = select_tag.get("name")
-    field_type = "select"
-    value = None
-    required = select_tag.has_attr("required")
-    placeholder = select_tag.get("placeholder") or None
-    multiple = select_tag.has_attr("multiple")
-    meta = {"multiple": multiple} if multiple else {}
-    options = []
-    for option in select_tag.find_all("option"):
-        value = option.get("value")
-        text = option.text
-        selected = option.has_attr("selected")
-        options.append({"value": value, "text": text, "selected": selected})
-    value = options
-    return InputField(name, field_type, value, required, placeholder, meta)
+def parse_form_inputs(form_tag) -> List[InputField]:
+    inputs = []
+
+    tag_parsers = {
+        "input": InputField.from_input_tag,
+        "textarea": InputField.from_textarea_tag,
+        "select": InputField.from_select_tag,
+    }
+
+    for tag in form_tag.find_all(["input", "textarea", "select"]):
+        parser = tag_parsers.get(tag.name)
+        if parser:
+            try:
+                inputs.append(parser(tag))
+            except Exception as e:
+                print(f"Failed to parse {tag.name} tag: {e}")
+
+    return inputs
 
 
 def extract_forms(html: str, url: Optional[str]) -> List[Form]:
-    soup = BeautifulSoup(html, "lxml")
-    forms = []
-    for form in soup.find_all("form"):
-        action = form.get("action")
-        if action:
-            action = urljoin(url, action) if url else action
-        else:
-            action = url if url else None
-        method = form.get("method", "get")
-        form_id = form.get("id") or None
-        classes = form.get("class")
-        if not classes:
-            classes = []
-        enctype = form.get("enctype")
-        inputs = []
-        for tag in form.find_all(["input", "textarea", "select"]):
-            if tag.name == "input":
-                input_field = parse_input_tag(tag)
-            elif tag.name == "textarea":
-                input_field = parse_textarea_tag(tag)
-            elif tag.name == "select":
-                input_field = parse_select_tag(tag)
-            inputs.append(input_field)
-        forms.append(Form(action, method, inputs, enctype, form_id, classes))
-    return forms
+    if not html:
+        return []
+    try:
+        soup = BeautifulSoup(html, "lxml")
+        return [Form.from_soup_form(form, url) for form in soup.find_all("form")]
+    except Exception as e:
+        print(f"Error during extracting forms from html: {str(e)}")
+        return []
 
 
-def fetch_html(url: str, timeout: int = 4):
-    if url.startswith("file://"):
-        with open(url[7:], "r", encoding="utf-8") as file:
-            content = file.read()
-            return content
-    else:
-        response = requests.get(
-            url,
-            timeout=timeout,
-            headers={"User-Agent": "scanner-mvp/0.1"},
-            verify=False,
-        )
-        try:
-            response.raise_for_status()
-            return response.text
-        except requests.HTTPError as e:
-            print(f"HTTP error occured: {e}")
+def read_html_file(file_path: str) -> Optional[str]:
+    try:
+        path = Path(file_path)
+        if not path.exists():
             return None
+        with open(path, "r", encoding="UTF-8") as f:
+            return f.read()
+    except Exception as e:
+        print(f"Error during reading html from local file: {str(e)}")
+        return None
 
 
-def main():
-    url = (
-        sys.argv[1] if len(sys.argv) > 1 else "http://google.com"
-    )  # "file://D:/Project/src/local.html"
-    html = fetch_html(url)
-    forms = extract_forms(html, url)
-    print(f"Parsed site: {url}")
-    print(json.dumps([form.to_dict() for form in forms], indent=2))
-    with open("forms.json", "w", encoding="utf-8") as file:
-        json.dump([form.to_dict() for form in forms], file, indent=2)
+def read_html_web(url: str, timeout: int) -> Optional[str]:
+    try:
+        response = requests.get(url, timeout, headers={"User-Agent": "MVP-Scanner 0.1"})
+        response.raise_for_status()
+        return response.text
+    except Exception as e:
+        print(f"Error during reading html from web: {str(e)}")
 
 
-if __name__ == "__main__":
-    main()
+def fetch_html(url: str, timeout: int = 10) -> Optional[str]:
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
+
+    if scheme == "file":
+        file_path = url[7:] if url.startswith("file://") else parsed.path
+        return read_html_file(file_path)
+
+    else:
+        return read_html_web(url, timeout)

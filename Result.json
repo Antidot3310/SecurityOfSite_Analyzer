@@ -1,10 +1,7 @@
 [
   {
-    "action": "file://C:\\Users\\rosti\\AppData\\Local\\Temp\\pytest-of-rosti\\pytest-43\\test_api_saves_scan0\\s.html",
+    "action": "file://C:\\Users\\rosti\\AppData\\Local\\Temp\\pytest-of-rosti\\pytest-47\\test_api_saves_scan0\\s.html",
     "method": "get",
-    "enctype": null,
-    "form_id": null,
-    "classes": [],
     "inputs": [
       {
         "name": "a",
@@ -14,6 +11,9 @@
         "placeholder": null,
         "meta": {}
       }
-    ]
+    ],
+    "enctype": null,
+    "form_id": null,
+    "classes": []
   }
 ]
