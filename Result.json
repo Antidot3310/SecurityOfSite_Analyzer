@@ -1,6 +1,6 @@
 [
   {
-    "action": "file://C:\\Users\\rosti\\AppData\\Local\\Temp\\pytest-of-rosti\\pytest-47\\test_api_saves_scan0\\s.html",
+    "action": "file:///C:/Users/rosti/AppData/Local/Temp/pytest-of-rosti/pytest-78/test_api_saves_scan0/s.html",
     "method": "get",
     "inputs": [
       {

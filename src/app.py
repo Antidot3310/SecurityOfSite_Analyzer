@@ -6,40 +6,59 @@ if root not in sys.path:
     sys.path.insert(0, root)
 
 from flask import Flask, request, jsonify
-from src.extractor import *
+from src.extractor import extract_forms, fetch_html
 from src.storage.db import init_db, save_scan
 import json
+from typing import Any
 
 
-app = Flask("__name__")
+app = Flask(__name__)
+
+
+def save_to_file(data: list[dict[str, Any]], filename: str) -> None:
+    with open(filename, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=2)
+
+
+def parse_forms_from_url(url: str) -> dict[str, Any]:
+    html = fetch_html(url)
+    if html is None:
+        raise ConnectionError("Couldn't get html")
+
+    forms = extract_forms(html, url)
+    return {
+        "forms": [form.to_dict() for form in forms],
+        "html_length": len(html),
+        "forms_count": len(forms),
+    }
 
 
 @app.route("/api/parse", methods=["GET"])
 def api_parse():
     url = request.args.get("url")
     if not url:
-        return jsonify({"error": "missing url parametr"}), 400
-    else:
-        try:
-            html = fetch_html(url)
-            if html is None:
-                return jsonify({"error": "failed to fetch html"})
-            forms = extract_forms(html, url)
-            res = [form.to_dict() for form in forms]
-            scan_id = save_scan(
-                target=url,
-                results_json=json.dumps(res),
-                meta={
-                    "count": len(res),
-                    "status_code": 200,
-                    "response_size": len(html),
-                },
-            )
-            with open("Result.json", "w", encoding="UTF-8") as file:
-                json.dump(res, file, ensure_ascii=True, indent=2)
-            return jsonify({"count": len(res), "scan_id": scan_id, "forms": res})
-        except Exception as e:
-            return jsonify({"error": str(e)})
+        return (
+            jsonify({"error": "missing url parameter"}),
+            400,
+        )
+
+    try:
+        res = parse_forms_from_url(url)
+        scan_id = save_scan(
+            target=url,
+            results_json=json.dumps(res),
+            meta={
+                "count": res["forms_count"],
+                "status_code": 200,
+                "response_size": res["html_length"],
+            },
+        )
+        save_to_file(res["forms"], "tests/test_data/Result.json")
+        return jsonify(
+            {"count": res["forms_count"], "scan_id": scan_id, "forms": res["forms"]}
+        )
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 
 if __name__ == "__main__":

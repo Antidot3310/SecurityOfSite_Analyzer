@@ -1,4 +1,3 @@
-import pytest
 import os
 import sys
 
@@ -9,7 +8,8 @@ from src.parser import fetch_info
 
 
 def test_fetch_info_local_ok():
-    res = fetch_info(url="file://./src/local.html", timeout=4)
+    res = fetch_info(url="file://./tests/local.html", timeout=4)
+    print(res)
     assert res["ok"] == True
 
 

@@ -1,69 +1,70 @@
 import sqlite3
-import json
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Iterator, Any
+from contextlib import contextmanager
 
-DEFAULT_DB_PATH = "data.db"
-
-
-def use_db(func):
-    def wrapper(path: str = DEFAULT_DB_PATH, *args, **kwargs):
-        conn = sqlite3.connect(path)
-        cursor = conn.cursor()
-        cursor.row_factory = sqlite3.Row
-        try:
-            result = func(cursor, *args, **kwargs)
-            conn.commit()
-            return result
-        except Exception as e:
-            conn.rollback()
-            print(f"Database error: {e}")
-            raise
-        finally:
-            cursor.close()
-            conn.close()
-
-    return wrapper
+DEFAULT_DB_PATH = "data/data.db"
 
 
-@use_db
-def init_db(cursor):
-    cursor.execute(
+@contextmanager
+def db_connect(path: str = DEFAULT_DB_PATH) -> Iterator[sqlite3.Cursor]:
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        yield cursor
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise sqlite3.Error(f"Database error: {e}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def init_db(path: str = DEFAULT_DB_PATH):
+    with db_connect(path) as cursor:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS scans(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            target TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            results_json TEXT NOT NULL,
+            count INTEGER,
+            status_code INTEGER,
+            response_size INTEGER
+        )              
         """
-    CREATE TABLE IF NOT EXISTS scans(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    target TEXT NOT NULL,
-    timestamp TEXT NOT NULL,
-    results_json TEXT NOT NULL,
-    count INTEGER,
-    status_code INTEGER,
-    response_size INTEGER
-    )              
-    """
-    )
+        )
 
 
-@use_db
-def save_scan(cursor, target: str, results_json: str, meta: dict = None) -> int:
-    timestamp = datetime.now()
-    count = meta.get("count") if meta else None
-    status_code = meta.get("status_code") if meta else None
-    response_size = meta.get("response_size") if meta else None
-    cursor.execute(
-        """
-        INSERT INTO scans (target, timestamp, results_json, count, status_code, response_size)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (target, timestamp, results_json, count, status_code, response_size),
-    )
+def save_scan(
+    target: str,
+    results_json: str,
+    meta: Optional[dict] = None,
+    path: str = DEFAULT_DB_PATH,
+) -> int:
+    with db_connect(path) as cursor:
+        cursor.execute(
+            """
+                INSERT INTO scans (target, timestamp, results_json, count, status_code, response_size)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                target,
+                datetime.now(),
+                results_json,
+                meta.get("count"),
+                meta.get("status_code"),
+                meta.get("response_size"),
+            ),
+        )
     return cursor.lastrowid
 
 
-@use_db
-def get_scan(cursor, scan_id: int) -> Optional[dict]:
-    cursor.execute("SELECT * FROM scans WHERE id = ?", (scan_id,))
-    row = cursor.fetchone()
-    if row:
-        return {k: row[k] for k in row.keys()}
-    else:
-        return None
+def get_scan(scan_id: int, path: str = DEFAULT_DB_PATH) -> Optional[dict]:
+    with db_connect(path) as cursor:
+        cursor.execute("SELECT * FROM scans WHERE id = ?", (scan_id,))
+        row = cursor.fetchone()
+    return dict(row) if row else None

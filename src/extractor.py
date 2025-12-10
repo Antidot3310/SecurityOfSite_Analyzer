@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import requests
 from pathlib import Path
+from src.parser import url_to_path
 
 
 @dataclass
@@ -155,8 +156,8 @@ def fetch_html(url: str, timeout: int = 10) -> Optional[str]:
     scheme = parsed.scheme.lower()
 
     if scheme == "file":
-        file_path = url[7:] if url.startswith("file://") else parsed.path
-        return read_html_file(file_path)
+        path = url_to_path(url)
+        return read_html_file(path)
 
     else:
         return read_html_web(url, timeout)

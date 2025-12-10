@@ -16,7 +16,7 @@ def test_api_saves_scan(tmp_path, monkeypatch):
         "<html><body><form><input name='a'></form></body></html>", encoding="utf-8"
     )
     client = app.test_client()
-    resp = client.get(f"/api/parse?url=file://{sample}")
+    resp = client.get(f"/api/parse?url={sample.as_uri()}")
     assert resp.status_code == 200
     data = resp.get_json()
     assert "scan_id" in data
