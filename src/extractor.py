@@ -1,149 +1,11 @@
-from dataclasses import dataclass, asdict, field
-from typing import List, Optional, Any
+from src.fetcher import url_to_path
+from src.models import Form, InputField
+from src.utils import url_to_path
+from urllib.parse import urlparse
+from typing import List, Optional
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
 import requests
 from pathlib import Path
-from src.parser import url_to_path
-
-
-@dataclass
-class InputField:
-    name: Optional[str]
-    field_type: Optional[str]
-    value: Optional[str]  # init value
-    required: bool
-    placeholder: Optional[str]  # text when no value is set
-    meta: dict[str, Any] = field(default_factory=dict)  # movable field
-
-    @classmethod
-    def from_textarea_tag(cls, tag) -> InputField:
-        return cls(
-            name=tag.get("name"),
-            field_type="textarea",
-            value=tag.text or None,
-            required=tag.has_attr("required"),
-            placeholder=tag.get("placeholder"),
-        )
-
-    @classmethod
-    def from_input_tag(cls, tag) -> InputField:
-        return cls(
-            name=tag.get("name"),
-            field_type=tag.get("type", "text"),
-            value=tag.get("value"),
-            required=tag.has_attr("required"),
-            placeholder=tag.get("placeholder"),
-        )
-
-    @classmethod
-    def from_select_tag(cls, tag) -> InputField:
-        options = []
-        for option in tag.find_all("option"):
-            options.append(
-                {
-                    "value": option.get("value"),
-                    "text": option.text,
-                    "selected": option.has_attr("selected"),
-                }
-            )
-
-        return cls(
-            name=tag.get("name"),
-            field_type="select",
-            value=options,
-            required=tag.has_attr("required"),
-            placeholder=tag.get("placeholder"),
-            meta={"multiple": tag.has_attr("multiple")},
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-
-# save inputs with different structure (tags) correctly
-def parse_form_inputs(form_tag) -> List[InputField]:
-    inputs = []
-
-    tag_parsers = {
-        "input": InputField.from_input_tag,
-        "textarea": InputField.from_textarea_tag,
-        "select": InputField.from_select_tag,
-    }
-
-    for tag in form_tag.find_all(["input", "textarea", "select"]):
-        parser = tag_parsers.get(tag.name)
-        if parser:
-            try:
-                inputs.append(parser(tag))
-            except Exception as e:
-                print(f"Failed to parse {tag.name} tag: {e}")
-
-    return inputs
-
-
-@dataclass
-class Form:
-    action: Optional[str]
-    method: str
-    inputs: list[InputField]
-    enctype: Optional[str]
-    form_id: str
-    classes: list[str]
-
-    def to_dict(self) -> dict[str, Any]:
-        result = asdict(self)
-        result["inputs"] = [input_field.to_dict() for input_field in self.inputs]
-        return result
-
-    @classmethod
-    def from_soup_form(cls, form_tag, base_url: Optional[str] = None) -> Form:
-        action = form_tag.get("action")
-        if action and base_url:
-            action = safe_urljoin(base_url, action)
-
-        return cls(
-            action=action or base_url,
-            method=form_tag.get("method", "get").lower(),
-            enctype=form_tag.get("enctype"),
-            form_id=form_tag.get("id"),
-            classes=form_tag.get("class", []),
-            inputs=parse_form_inputs(form_tag),
-        )
-
-
-def safe_urljoin(base: str, url: str) -> str:
-    try:
-        if base is None:
-            base = ""
-        elif not isinstance(base, str):
-            base = str(base)
-
-        if url is None:
-            url = ""
-        elif not isinstance(url, str):
-            url = str(url)
-
-        if not base:
-            return url
-        if not url:
-            return base
-        
-        return urljoin(base, url)
-    except Exception as e:
-        print(f"Error during operation urljoin: {str(e)}")
-        return ""
-
-
-def extract_forms(html: str, url: Optional[str]) -> List[Form]:
-    if not html:
-        return []
-    try:
-        soup = BeautifulSoup(html, "lxml")
-        return [Form.from_soup_form(form, url) for form in soup.find_all("form")]
-    except Exception as e:
-        print(f"Error during extracting forms from html: {str(e)}")
-        return []
 
 
 def read_html_file(file_path: str) -> Optional[str]:
@@ -165,7 +27,7 @@ def read_html_web(url: str, timeout: int) -> Optional[str]:
         )
         response.raise_for_status()
         return response.text
-    except requests.exceptions.HTTPError as e:
+    except Exception as e:
         print(f"Error during reading html from web: {str(e)}")
         return None
 
@@ -174,9 +36,23 @@ def fetch_html(url: str, timeout: int = 10) -> Optional[str]:
     parsed = urlparse(url)
     scheme = parsed.scheme.lower()
 
+    if not urlparse(url).scheme:
+        scheme = "http://" + url
+
     if scheme == "file":
         path = url_to_path(url)
         return read_html_file(path)
 
     else:
         return read_html_web(url, timeout)
+
+
+def extract_forms(html: str, url: Optional[str]) -> List[Form]:
+    if not html:
+        return []
+    try:
+        soup = BeautifulSoup(html, "lxml")
+        return [Form.from_soup_form(form, url) for form in soup.find_all("form")]
+    except Exception as e:
+        print(f"Error during extracting forms from html: {str(e)}")
+        return []

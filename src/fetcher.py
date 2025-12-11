@@ -1,27 +1,8 @@
+from urllib.parse import urlparse
+from src.utils import url_to_path
 import os
 import requests
-from urllib.parse import urlparse, unquote
 from typing import Optional, Any
-
-
-def url_to_path(url: str) -> str:
-    parsed = urlparse(url)
-    # decode %xx escapse
-    path = unquote(parsed.path)
-
-    while path.startswith("//"):
-        path = path[1:]
-
-    # process relative pathes
-    if parsed.netloc == ".":
-        return f".{path}" if path.startswith("/") else f"./{path}"
-
-    # process windows pathes
-    if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
-        # /C:/Users/... -> C:/Users/...
-        path = path[1:]
-
-    return path
 
 
 # create structure to write response result
@@ -77,5 +58,8 @@ def fetch_info(url: str, timeout: int = 5) -> dict[str, Any]:
         elif scheme == "file":
             path = url_to_path(url)
             return fetch_local_file(path)
+
+        else:
+            return create_response(url=url, error=f"Unsupported scheme: {scheme}")
     except Exception as e:
         return create_response(url=url, error=str(e))

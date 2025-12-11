@@ -1,15 +1,11 @@
-import os
-import sys
-
-root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if root not in sys.path:
-    sys.path.insert(0, root)
-
 from flask import Flask, request, jsonify
 from src.extractor import extract_forms, fetch_html
 from src.storage.db import init_db, save_scan
-import json
 from typing import Any
+import json
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 app = Flask(__name__)
