@@ -14,7 +14,7 @@ class InputField:
     value: Optional[str]  # init value
     required: bool
     placeholder: Optional[str]  # text when no value is set
-    meta: dict[str, Any] = field(default_factory=dict)
+    meta: dict[str, Any] = field(default_factory=dict)  # movable field
 
     @classmethod
     def from_textarea_tag(cls, tag) -> InputField:
@@ -61,6 +61,27 @@ class InputField:
         return asdict(self)
 
 
+# save inputs with different structure (tags) correctly
+def parse_form_inputs(form_tag) -> List[InputField]:
+    inputs = []
+
+    tag_parsers = {
+        "input": InputField.from_input_tag,
+        "textarea": InputField.from_textarea_tag,
+        "select": InputField.from_select_tag,
+    }
+
+    for tag in form_tag.find_all(["input", "textarea", "select"]):
+        parser = tag_parsers.get(tag.name)
+        if parser:
+            try:
+                inputs.append(parser(tag))
+            except Exception as e:
+                print(f"Failed to parse {tag.name} tag: {e}")
+
+    return inputs
+
+
 @dataclass
 class Form:
     action: Optional[str]
@@ -93,30 +114,25 @@ class Form:
 
 def safe_urljoin(base: str, url: str) -> str:
     try:
+        if base is None:
+            base = ""
+        elif not isinstance(base, str):
+            base = str(base)
+
+        if url is None:
+            url = ""
+        elif not isinstance(url, str):
+            url = str(url)
+
+        if not base:
+            return url
+        if not url:
+            return base
+        
         return urljoin(base, url)
     except Exception as e:
         print(f"Error during operation urljoin: {str(e)}")
-        return url
-
-
-def parse_form_inputs(form_tag) -> List[InputField]:
-    inputs = []
-
-    tag_parsers = {
-        "input": InputField.from_input_tag,
-        "textarea": InputField.from_textarea_tag,
-        "select": InputField.from_select_tag,
-    }
-
-    for tag in form_tag.find_all(["input", "textarea", "select"]):
-        parser = tag_parsers.get(tag.name)
-        if parser:
-            try:
-                inputs.append(parser(tag))
-            except Exception as e:
-                print(f"Failed to parse {tag.name} tag: {e}")
-
-    return inputs
+        return ""
 
 
 def extract_forms(html: str, url: Optional[str]) -> List[Form]:
@@ -144,11 +160,14 @@ def read_html_file(file_path: str) -> Optional[str]:
 
 def read_html_web(url: str, timeout: int) -> Optional[str]:
     try:
-        response = requests.get(url, timeout, headers={"User-Agent": "MVP-Scanner 0.1"})
+        response = requests.get(
+            url, timeout=timeout, headers={"User-Agent": "MVP-Scanner 0.1"}
+        )
         response.raise_for_status()
         return response.text
-    except Exception as e:
+    except requests.exceptions.HTTPError as e:
         print(f"Error during reading html from web: {str(e)}")
+        return None
 
 
 def fetch_html(url: str, timeout: int = 10) -> Optional[str]:

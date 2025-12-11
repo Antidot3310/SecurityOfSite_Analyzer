@@ -6,14 +6,17 @@ from typing import Optional, Any
 
 def url_to_path(url: str) -> str:
     parsed = urlparse(url)
+    # decode %xx escapse
     path = unquote(parsed.path)
 
     while path.startswith("//"):
         path = path[1:]
 
+    # process relative pathes
     if parsed.netloc == ".":
         return f".{path}" if path.startswith("/") else f"./{path}"
 
+    # process windows pathes
     if os.name == "nt" and path.startswith("/") and len(path) > 2 and path[2] == ":":
         # /C:/Users/... -> C:/Users/...
         path = path[1:]
@@ -21,6 +24,7 @@ def url_to_path(url: str) -> str:
     return path
 
 
+# create structure to write response result
 def create_response(
     url: str,
     status: Optional[int] = None,
@@ -58,9 +62,7 @@ def fetch_web(url: str, timeout: int) -> dict[str, Any]:
             url=url, status=resp.status_code, length=len(resp.text), ok=True
         )
     except requests.exceptions.HTTPError as e:
-        return create_response(
-            url=url, status=resp.status_code, length=len(resp.text), error=str(e)
-        )
+        return create_response(url=url, error=str(e))
 
 
 def fetch_info(url: str, timeout: int = 5) -> dict[str, Any]:

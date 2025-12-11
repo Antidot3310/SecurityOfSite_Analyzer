@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import datetime
-from typing import Optional, Iterator, Any
+from typing import Optional, Iterator
 from contextlib import contextmanager
 
 DEFAULT_DB_PATH = "data/data.db"

@@ -12,3 +12,4 @@ def test_api_parse_local(tmp_path):
     data = resp.get_json()
     assert "forms" in data
     assert data["count"] == 1
+

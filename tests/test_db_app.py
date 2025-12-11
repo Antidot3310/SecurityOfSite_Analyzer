@@ -1,16 +1,8 @@
-import sys
-import os
-import pytest
-
-root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if root not in sys.path:
-    sys.path.insert(0, root)
-
 from src.app import app
 from src.storage.db import get_scan
 
 
-def test_api_saves_scan(tmp_path, monkeypatch):
+def test_api_saves_scan(tmp_path):
     sample = tmp_path / "s.html"
     sample.write_text(
         "<html><body><form><input name='a'></form></body></html>", encoding="utf-8"

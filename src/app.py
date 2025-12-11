@@ -33,6 +33,9 @@ def parse_forms_from_url(url: str) -> dict[str, Any]:
     }
 
 
+# return forms from site
+# takes url as parameter
+# support as relative as absolute pathes
 @app.route("/api/parse", methods=["GET"])
 def api_parse():
     url = request.args.get("url")
@@ -40,10 +43,10 @@ def api_parse():
         return (
             jsonify({"error": "missing url parameter"}),
             400,
-        )
+        )  # return tuple
 
     try:
-        res = parse_forms_from_url(url)
+        res = parse_forms_from_url(url)  # if problem raise exception
         scan_id = save_scan(
             target=url,
             results_json=json.dumps(res),
@@ -58,7 +61,7 @@ def api_parse():
             {"count": res["forms_count"], "scan_id": scan_id, "forms": res["forms"]}
         )
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify({"error": str(e)}), 400
 
 
 if __name__ == "__main__":
