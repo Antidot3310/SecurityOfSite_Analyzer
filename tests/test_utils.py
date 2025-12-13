@@ -3,11 +3,11 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.utils import url_to_path, safe_urljoin
+from src.extractor.utils import url_to_path, safe_urljoin
 
 
 @pytest.mark.parametrize(
-    "input_url,expected",
+    "url,excepted",
     [
         ("file://localhost/etc/passwd", "/etc/passwd"),
         ("file:./test.txt", "./test.txt"),
@@ -24,8 +24,8 @@ from src.utils import url_to_path, safe_urljoin
         ("file:../parent.txt", "../parent.txt"),
     ],
 )
-def test_url_to_path_various(input_url, expected):
-    assert url_to_path(input_url) == expected
+def test_various_url_to_path(url, excepted):
+    assert url_to_path(url) == excepted
 
 
 @pytest.mark.parametrize(

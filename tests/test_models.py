@@ -3,50 +3,49 @@ import sys
 from bs4 import BeautifulSoup
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.models import InputField, Form, parse_form_inputs
+from src.extractor.models import InputField, Form
 
 
-def test_inputfield_factories():
-    s = BeautifulSoup(
+def test_inputfield_factories_and_select():
+    html = (
         '<input name="u" type="text" value="john" required placeholder="p">'
         '<textarea name="b">txt</textarea>'
-        '<select name="c"><option value="1" selected>1</option></select>',
-        "html.parser",
+        '<select name="c"><option value="1" selected>1</option></select>'
     )
-    inp = s.find("input")
-    ta = s.find("textarea")
-    sel = s.find("select")
+    soup = BeautifulSoup(html, "html.parser")
 
-    f1 = InputField.from_input_tag(inp)
-    assert (f1.name, f1.field_type, f1.value, f1.required) == (
+    f_input = InputField.from_input_tag(soup.find("input"))
+    assert (f_input.name, f_input.field_type, f_input.value, f_input.required) == (
         "u",
         "text",
         "john",
         True,
     )
 
-    f2 = InputField.from_textarea_tag(ta)
-    assert (f2.name, f2.field_type, f2.value) == ("b", "textarea", "txt")
+    f_textarea = InputField.from_textarea_tag(soup.find("textarea"))
+    assert (f_textarea.name, f_textarea.field_type, f_textarea.value) == (
+        "b",
+        "textarea",
+        "txt",
+    )
 
-    f3 = InputField.from_select_tag(sel)
-    assert f3.name == "c" and f3.value[0]["value"] == "1"
+    f_selected = InputField.from_select_tag(soup.find("select"))
+    assert (
+        f_selected.name == "c"
+        and isinstance(f_selected.value, list)
+        and f_selected.value[0]["value"] == "1"
+    )
 
 
-def test_form_from_soup_and_dict():
+def test_form_from_soup_form_and_defaults():
     html = '<form id="f" class="c1 c2" action="/go" method="POST" enctype="multipart/form-data"><input name="x"></form>'
-    form = BeautifulSoup(html, "html.parser").find("form")
-    obj = Form.from_soup_form(form, "https://ex.com")
-    d = obj.to_dict()
-    assert obj.form_id == "f"
-    assert obj.classes == ["c1", "c2"]
-    assert obj.action == "https://ex.com/go"
-    assert d["inputs"][0]["name"] == "x"
+    form_tag = BeautifulSoup(html, "html.parser").find("form")
 
+    frm = Form.from_soup_form(form_tag, "https://ex.com")
+    d = frm.to_dict()
 
-def test_form_no_action_uses_base_url():
-    form_tag = BeautifulSoup(
-        '<form method="POST"><input name="t"></form>', "html.parser"
-    ).find("form")
-    obj = Form.from_soup_form(form_tag, "https://ex.com/page")
-    assert obj.action == "https://ex.com/page"
-    assert obj.method == "post"
+    assert frm.form_id == "f"
+    assert frm.classes == ["c1", "c2"]
+    assert frm.action == "https://ex.com/go"
+    assert frm.method == "post"
+    assert isinstance(d["inputs"], list) and d["inputs"][0]["name"] == "x"

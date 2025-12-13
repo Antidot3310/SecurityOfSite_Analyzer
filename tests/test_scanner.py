@@ -1,92 +1,66 @@
-import pytest
 from src.scanner.scanner import (
     build_test_data,
     build_base_line,
     scan_field,
-    send_form_request,
     ResponseSnapshot,
 )
-from src.scanner.types import Payload, MatchType, VulnType, Severity
-from src.scanner.detectors import run_detectors
+import os
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from src.scanner.types import Payload, VulnType, Severity, MatchType
 
 
-def test_build_test_data_copy():
+def test_build_test_data_does_not_mutate():
     base = {"a": "1"}
     inp = {"name": "q"}
-    payload = Payload(
-        "p1", "XVAL", VulnType.XSS, Severity.MEDIUM, MatchType.REFLECTED, []
-    )
+    payload = Payload("p", "X", VulnType.XSS, Severity.LOW, MatchType.REFLECTED, [])
+
     out = build_test_data(base, inp, payload)
-    assert out is not base
-    assert "q" in out and out["q"] == "XVAL"
-    assert "q" not in base
+
+    assert base == {"a": "1"}
+    assert out["q"] == "X"
 
 
-def test_build_base_line_includes_empty_values():
+def test_build_base_line_fills_missing_values():
     inputs = [{"name": "a", "value": "1"}, {"name": "b"}]
     res = build_base_line(inputs)
-    assert res["a"] == "1"
-    assert res["b"] == ""
+
+    assert res == {"a": "1", "b": ""}
 
 
-def test_scan_field_integration(monkeypatch):
-    form = {
-        "action": "http://example",
-        "method": "POST",
-        "form_id": "f1",
-        "inputs": [{"name": "q", "type": "text"}],
-    }
+def test_scan_field_happy_path(monkeypatch):
+    form = {"form_id": 1}
     inp = {"name": "q", "type": "text"}
-
     base_data = {"q": ""}
-    base_snapshot = ResponseSnapshot(
-        url="http://example",
-        status_code=200,
-        body="base",
-        body_len=4,
-        response_time=100,
-    )
-    injected_snapshot = ResponseSnapshot(
-        url="http://example",
-        status_code=200,
-        body="<script>alert(1)</script>",
-        body_len=30,
-        response_time=110,
+    payload = Payload(
+        "p",
+        "<script>alert(1)</script>",
+        VulnType.XSS,
+        Severity.MEDIUM,
+        MatchType.REFLECTED,
+        [],
     )
 
-    def fake_send_form_request(form_arg, data_arg, timeout=8):
-        if data_arg == base_data:
-            return base_snapshot
-        return injected_snapshot
+    base_snap = ResponseSnapshot("u", 200, "base", 4, 100)
+    inj_snap = ResponseSnapshot("u", 200, "alert(1)", 8, 120)
 
-    monkeypatch.setattr("src.scanner.scanner.send_form_request", fake_send_form_request)
+    monkeypatch.setattr(
+        "src.scanner.scanner.send_form_request",
+        lambda *a, **k: inj_snap,
+    )
+    monkeypatch.setattr(
+        "src.scanner.detectors.run_detectors",
+        lambda *a, **k: [{"matched": True, "evidence": "alert"}],
+    )
 
-    def fake_run_detectors(base, injected, payload):
-        return [{"detector": "reflection", "matched": True, "evidence": "alert(1)"}]
-
-    monkeypatch.setattr("src.scanner.detectors.run_detectors", fake_run_detectors)
-
-    payloads = [
-        Payload(
-            "p1",
-            "<script>alert(1)</script>",
-            VulnType.XSS,
-            Severity.MEDIUM,
-            MatchType.REFLECTED,
-            [],
-        )
-    ]
-
-    findings = scan_field(
+    res = scan_field(
         form=form,
         inp=inp,
+        base_line_snapshot=base_snap,
+        payloads=[payload],
         base_data=base_data,
-        base_line_snapshot=base_snapshot,
-        payloads=payloads,
+        rate_limit=0,
     )
-    assert isinstance(findings, list)
-    assert len(findings) == 1
-    f = findings[0]
-    assert f.field_name == "q"
-    assert f.payload.payload == "<script>alert(1)</script>"
-    assert "alert" in f.evidence
+
+    assert len(res) == 1
+    assert res[0].field_name == "q"

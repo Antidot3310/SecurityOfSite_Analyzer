@@ -1,21 +1,26 @@
 import json
 from typing import List
-from .types import VulnType, Severity, MatchType, Payload
+from .types import Payload, VulnType, Severity, MatchType
 
 
 def load_payloads(path: str) -> List[Payload]:
-    with open(path, "r", encoding="UTF-8") as file:
-        raw = json.load(file)
-    payloads = []
+    with open(path, "r", encoding="utf-8") as f:
+        raw = json.load(f)
+
+    out: List[Payload] = []
     for p in raw:
-        payloads.append(
-            Payload(
-                payload_id=p["payload_id"],
-                payload=p["payload"],
-                vuln_type=VulnType(p["vuln_type"]),
-                severity=Severity(p["severity"]),
-                match_type=MatchType(p["match_type"]),
-                evidence_patterns=p["evidence_patterns"],
+        try:
+            out.append(
+                Payload(
+                    payload_id=p["payload_id"],
+                    payload=p["payload"],
+                    vuln_type=VulnType(p.get("vuln_type")),
+                    severity=Severity(p.get("severity")),
+                    match_type=MatchType(p.get("match_type")),
+                    evidence_patterns=p.get("evidence_patterns", []),
+                )
             )
-        )
-    return payloads
+        except Exception as e:
+            print(f"Can't load payloads: {str(e)}")
+            continue
+    return out

@@ -1,5 +1,9 @@
+# src/types.py
+from dataclasses import dataclass, asdict
 from enum import Enum
-from typing import List
+from typing import List, Any, Dict, Type, TypeVar, Optional
+
+T = TypeVar("T", bound=Enum)
 
 
 class Severity(Enum):
@@ -28,29 +32,18 @@ class MatchType(Enum):
     ERROR_BASED = "error-based"
 
 
+@dataclass
 class Payload:
-    def __init__(
-        self,
-        payload_id: str,
-        payload: str,
-        vuln_type: VulnType,
-        severity: Severity,
-        match_type: MatchType,
-        evidence_patterns: List[str],
-    ):
-        self.payload_id = payload_id
-        self.payload = payload
-        self.vuln_type = vuln_type
-        self.severity = severity
-        self.match_type = match_type
-        self.evidence_patterns = evidence_patterns
+    payload_id: str
+    payload: str
+    vuln_type: VulnType
+    severity: Severity
+    match_type: MatchType
+    evidence_patterns: List[str]
 
-    def to_dict(self):
-        return {
-            "payload_id": self.payload_id,
-            "payload": self.payload,
-            "vuln_type": self.vuln_type.name,
-            "severity": self.severity.name,
-            "match_type": self.match_type.name,
-            "evidence_patterns": self.evidence_patterns,
-        }
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["vuln_type"] = self.vuln_type.name
+        d["severity"] = self.severity.name
+        d["match_type"] = self.match_type.name
+        return d

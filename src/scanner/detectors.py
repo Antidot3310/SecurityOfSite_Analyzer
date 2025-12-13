@@ -1,90 +1,71 @@
-from .scanner import ResponseSnapshot, Payload
-from typing import List
+# src/detectors.py
+from typing import List, Dict
 from pathlib import Path
-import json
-import html
-import urllib.parse
-import re
+import json, html, urllib.parse, re
+from src.scanner.types import Payload
 
-p = Path(__file__).parent / "sql_errors.json"
+SQL_ERRORS_PATH = Path(__file__).parent / "data" / "sql_errors.json"
 try:
-    with open("sql_errors.json", "r", encoding="UTF-8") as f:
-        SQL_ERROR_LIST = json.load(f)
-except Exception as e:
-    print(f"Error within loading sql_errors.json: {str(e)}")
+    SQL_ERROR_LIST = [
+        s.lower() for s in json.loads(SQL_ERRORS_PATH.read_text(encoding="utf-8"))
+    ]
+except Exception:
     SQL_ERROR_LIST = []
 
 
-class DetectedResult:
-    def __init__(self, matched: bool, evidence: str):
-        self.matched = matched
-        self.evidence = evidence
+def detect_reflection(base, injected, payload: Payload) -> Dict:
+    base_text = (base.body or "").lower()
+    inj_text = (injected.body or "").lower()
+    raw = (payload.payload or "").lower()
 
-    def to_dict(self):
-        return {
-            "matched": self.matched,
-            "evidence": self.evidence,
-        }
-
-
-def detect_reflection(base, injected, payload):
-    base_lower = (base.body or "").lower()
-    inj_lower = (injected.body or "").lower()
-
-    if "alert(" in payload.payload.lower():
-        search_for = "alert(1)"
+    if "alert(" in raw:
+        candidate = "alert(1)"
     else:
-        search_for = re.sub(r"[^a-zA-Z0-9]", "", payload.payload)[:8]
-        if len(search_for) < 4:
-            return {"matched": False, "evidence": "", "confidence": 0}
+        candidate = re.sub(r"[^a-z0-9]", "", raw)[:8]
+        if len(candidate) < 4:
+            return {"matched": False, "evidence": ""}
 
-    variants = {search_for, html.escape(search_for), urllib.parse.quote(search_for)}
-
-    for variant in variants:
-        if variant in inj_lower and variant not in base_lower:
-            pos = (injected.body or "").lower().find(variant)
-            if pos != -1:
-                start = max(0, pos - 30)
-                end = pos + len(variant) + 30
-                evidence = (injected.body or "")[start:end]
-                return {
-                    "matched": True,
-                    "evidence": evidence,
-                }
-
+    variants = {candidate, html.escape(candidate), urllib.parse.quote(candidate)}
+    for v in variants:
+        if v in inj_text and v not in base_text:
+            pos = inj_text.find(v)
+            start = max(0, pos - 30)
+            end = pos + len(v) + 30
+            evidence = (injected.body or "")[start:end]
+            return {"matched": True, "evidence": evidence}
     return {"matched": False, "evidence": ""}
 
 
-def detect_sql_error(
-    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
-) -> dict:
+def detect_sql_error(base, injected, payload: Payload) -> Dict:
+    b = (base.body or "").lower()
+    i = (injected.body or "").lower()
     for err in SQL_ERROR_LIST:
-        if err in injected.body.lower() and not err in base.body.lower():
-            return DetectedResult(
-                matched=True, evidence=payload.evidence_patterns
-            ).to_dict()
+        if err and err in i and err not in b:
+            return {"matched": True, "evidence": err}
     return {"matched": False, "evidence": ""}
 
 
-def detect_time_delay(
-    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
-) -> dict:
-    threshold_ms = 2000  # ms
-    if injected.response_time - base.response_time > threshold_ms:
+def detect_time_delay(base, injected, payload: Payload) -> Dict:
+    threshold_ms = 2000
+    if (injected.response_time - base.response_time) > threshold_ms:
         return {
             "matched": True,
-            "evidence": f"Time delay detected: {injected.response_time - base.response_time} ms",
+            "evidence": f"time delay: {injected.response_time - base.response_time:.0f} ms",
         }
     return {"matched": False, "evidence": ""}
 
 
-def run_detectors(
-    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
-) -> List[dict]:
-    detectors = [detect_sql_error, detect_reflection, detect_time_delay]
-    det_res = []
-    for detector in detectors:
-        dr = detector(base, injected, payload)
-        if dr and dr["matched"]:
-            det_res.append(dr)
-    return det_res
+DETECTORS = (detect_sql_error, detect_reflection, detect_time_delay)
+
+
+def run_detectors(base, injected, payload: Payload) -> List[Dict]:
+    result = []
+    for detect in DETECTORS:
+        try:
+            res = detect(base, injected, payload)
+            if res and res.get("matched"):
+                result.append(res)
+        except Exception as e:
+            print(f"Problem during detecting: {str(e)}")
+            continue
+    return result

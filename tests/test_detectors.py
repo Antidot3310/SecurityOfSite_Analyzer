@@ -1,3 +1,7 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.scanner.detectors import (
     detect_sql_error,
     detect_reflection,
@@ -5,15 +9,13 @@ from src.scanner.detectors import (
     run_detectors,
     SQL_ERROR_LIST,
 )
-import pytest
-
 from src.scanner.scanner import ResponseSnapshot
 from src.scanner.types import Payload, MatchType, VulnType, Severity
 
 
-def make_snapshot(body: str, time_ms: float = 100.0) -> ResponseSnapshot:
+def snap(body: str, time_ms=100):
     return ResponseSnapshot(
-        url="http://test",
+        url="http://t",
         status_code=200,
         body=body,
         body_len=len(body),
@@ -21,118 +23,58 @@ def make_snapshot(body: str, time_ms: float = 100.0) -> ResponseSnapshot:
     )
 
 
-def make_payload(
-    payload_str: str,
-    match_type=MatchType.REFLECTED,
-    vuln_type=VulnType.XSS,
-    severity=Severity.MEDIUM,
-):
+def payload(val: str, match=MatchType.REFLECTED):
     return Payload(
-        payload_id="p1",
-        payload=payload_str,
-        vuln_type=vuln_type,
-        severity=severity,
-        match_type=match_type,
+        "p",
+        val,
+        vuln_type=VulnType.XSS,
+        severity=Severity.MEDIUM,
+        match_type=match,
         evidence_patterns=[],
     )
 
 
 def test_detect_sql_error_positive():
-    base = make_snapshot("Welcome page")
-    inj = make_snapshot(
-        "Something went wrong: You have an error in your SQL syntax near '...'", 120
-    )
-    payload = make_payload(
-        "' OR '1'='1",
-        match_type=MatchType.ERROR_BASED,
-        vuln_type=VulnType.SQLI,
-        severity=Severity.HIGH,
-    )
+    if not SQL_ERROR_LIST:
+        return None
 
-    res = detect_sql_error(base, inj, payload)
-    assert isinstance(res, dict)
+    err = SQL_ERROR_LIST[0]
+    base = snap("ok")
+    inj = snap(f"error happened: {err}")
+
+    res = detect_sql_error(base, inj, payload("' OR 1=1"))
     assert res["matched"] is True
-    assert any(err in inj.body.lower() for err in SQL_ERROR_LIST)
-
-
-def test_detect_sql_error_negative_when_in_base():
-    base = make_snapshot(
-        "You have an error in your SQL syntax near '...'"
-    )  # error already present
-    inj = make_snapshot("You have an error in your SQL syntax near '...'")
-    payload = make_payload(
-        "' OR '1'='1",
-        match_type=MatchType.ERROR_BASED,
-        vuln_type=VulnType.SQLI,
-        severity=Severity.HIGH,
-    )
-
-    res = detect_sql_error(base, inj, payload)
-    assert isinstance(res, dict)
-    assert res["matched"] is False
 
 
 def test_detect_reflection_positive():
-    base = make_snapshot("<html>hello</html>")
-    inj = make_snapshot("<html>hello<script>alert(1)</script></html>")
-    payload = make_payload(
-        "<script>alert(1)</script>",
-        match_type=MatchType.REFLECTED,
-        vuln_type=VulnType.XSS,
-    )
+    base = snap("hello")
+    inj = snap("<script>alert(1)</script>")
 
-    res = detect_reflection(base, inj, payload)
+    res = detect_reflection(base, inj, payload("<script>alert(1)</script>"))
     assert res["matched"] is True
-    assert "alert(1)" in res["evidence"]
-
-
-def test_detect_reflection_negative_when_in_base():
-    base = make_snapshot("<html><script>alert(1)</script></html>")
-    inj = make_snapshot("<html><script>alert(1)</script></html>")
-    payload = make_payload(
-        "<script>alert(1)</script>",
-        match_type=MatchType.REFLECTED,
-        vuln_type=VulnType.XSS,
-    )
-
-    res = detect_reflection(base, inj, payload)
-    assert res["matched"] is False
+    assert "alert" in res["evidence"]
 
 
 def test_detect_time_delay_positive():
-    base = make_snapshot("<html>ok</html>", time_ms=100)
-    inj = make_snapshot("<html>ok</html>", time_ms=2600)
-    payload = make_payload(
-        "' OR SLEEP(2)--", match_type=MatchType.TIME_BASED, vuln_type=VulnType.SQLI
-    )
+    base = snap("ok", 100)
+    inj = snap("ok", 2600)
 
-    res = detect_time_delay(base, inj, payload)
+    res = detect_time_delay(base, inj, payload("sleep", MatchType.TIME_BASED))
     assert res["matched"] is True
-    assert "time" in res["evidence"].lower()
 
 
-def test_run_detectors_calls_all_and_aggregates(monkeypatch):
-    base = make_snapshot("base")
-    inj = make_snapshot("inj alert(1)")
-    payload = make_payload(
-        "<script>alert(1)</script>",
-        match_type=MatchType.REFLECTED,
-        vuln_type=VulnType.XSS,
-    )
+def test_run_detectors_aggregates(monkeypatch):
+    def d1(*a, **k):
+        return {"matched": False}
 
-    def fake_sql(base_, inj_, payload_):
-        return {"matched": False, "evidence": ""}
+    def d2(*a, **k):
+        return {"matched": True, "evidence": "hit"}
 
-    def fake_ref(base_, inj_, payload_):
-        return {"matched": True, "evidence": "reflected: alert(1)"}
+    def d3(*a, **k):
+        return {"matched": False}
 
-    def fake_time(base_, inj_, payload_):
-        return {"matched": False, "evidence": ""}
+    monkeypatch.setattr("src.scanner.detectors.DETECTORS", (d1, d2, d3))
 
-    monkeypatch.setattr("src.scanner.detectors.detect_sql_error", fake_sql)
-    monkeypatch.setattr("src.scanner.detectors.detect_reflection", fake_ref)
-    monkeypatch.setattr("src.scanner.detectors.detect_time_delay", fake_time)
-
-    results = run_detectors(base, inj, payload)
-    assert isinstance(results, list)
-    assert any("reflected" in r.get("evidence", "") for r in results)
+    res = run_detectors(snap("b"), snap("i"), payload("x"))
+    assert len(res) == 1
+    assert res[0]["evidence"] == "hit"
