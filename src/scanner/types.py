@@ -1,10 +1,6 @@
-# src/types.py
 from dataclasses import dataclass, asdict
 from enum import Enum
-from typing import List, Any, Dict, Type, TypeVar, Optional
-
-T = TypeVar("T", bound=Enum)
-
+from typing import List, Any, Dict
 
 class Severity(Enum):
     INFO = "Info"

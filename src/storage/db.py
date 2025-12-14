@@ -7,7 +7,7 @@ from contextlib import contextmanager
 DEFAULT_DB_PATH = "data/data.db"
 
 
-def _ensure_dir_for_path(path: str) -> None:
+def ensure_dir_for_path(path: str) -> None:
     parent = Path(path).parent
     if not parent.exists():
         parent.mkdir(parents=True, exist_ok=True)
@@ -17,7 +17,7 @@ def _ensure_dir_for_path(path: str) -> None:
 def db_connect(path: Optional[str] = None) -> Iterator[sqlite3.Cursor]:
     if path is None:
         path = DEFAULT_DB_PATH
-    _ensure_dir_for_path(path)
+    ensure_dir_for_path(path)
 
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
@@ -36,7 +36,7 @@ def db_connect(path: Optional[str] = None) -> Iterator[sqlite3.Cursor]:
 def init_db(path: Optional[str] = None):
     if path is None:
         path = DEFAULT_DB_PATH
-    _ensure_dir_for_path(path)
+    ensure_dir_for_path(path)
     with db_connect(path) as cursor:
         cursor.execute(
             """
@@ -61,7 +61,7 @@ def save_scan(
 ) -> int:
     if path is None:
         path = DEFAULT_DB_PATH
-    _ensure_dir_for_path(path)
+    ensure_dir_for_path(path)
 
     ts = datetime.now().isoformat()
     count = meta.get("count") if meta else None

@@ -27,8 +27,8 @@ def fetch_local_file(path: str) -> Dict[str, Any]:
     if not os.path.exists(path):
         return create_response(url=path, error="File not found")
     try:
-        with open(path, "r", encoding="UTF-8") as f:
-            content = f.read()
+        with open(path, "r", encoding="UTF-8") as file:
+            content = file.read()
         return create_response(
             url=path, status=200, length=len(content), ok=True, text=content
         )
