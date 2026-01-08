@@ -36,7 +36,6 @@ def db_connect(path: Optional[str] = None) -> Iterator[sqlite3.Cursor]:
 def init_db(path: Optional[str] = None):
     if path is None:
         path = DEFAULT_DB_PATH
-    ensure_dir_for_path(path)
     with db_connect(path) as cursor:
         cursor.execute(
             """
@@ -61,7 +60,6 @@ def save_scan(
 ) -> int:
     if path is None:
         path = DEFAULT_DB_PATH
-    ensure_dir_for_path(path)
 
     ts = datetime.now().isoformat()
     count = meta.get("count") if meta else None

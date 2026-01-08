@@ -1,101 +1,75 @@
 [
   {
-    "action": "https://github.com/Antidot3310/SecurityOfSite_Analyzer",
+    "action": "/search",
     "method": "get",
     "inputs": [
       {
-        "name": "query-builder-test",
+        "name": "ie",
+        "field_type": "hidden",
+        "value": "ISO-8859-1",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "hl",
+        "field_type": "hidden",
+        "value": "pl",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "source",
+        "field_type": "hidden",
+        "value": "hp",
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "biw",
+        "field_type": "hidden",
+        "value": null,
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "bih",
+        "field_type": "hidden",
+        "value": null,
+        "required": false,
+        "placeholder": null,
+        "meta": {}
+      },
+      {
+        "name": "q",
         "field_type": "text",
         "value": "",
         "required": false,
         "placeholder": null,
         "meta": {}
-      }
-    ],
-    "enctype": null,
-    "form_id": "query-builder-test-form",
-    "classes": []
-  },
-  {
-    "action": "https://github.com/search/feedback",
-    "method": "post",
-    "inputs": [
+      },
       {
-        "name": "authenticity_token",
+        "name": "iflsig",
         "field_type": "hidden",
-        "value": "0wkFKty2sc1pNwu4yDv/uAtVcekZIeazTMPeamPt5TV2Gl5JGfF5qH5vxq0FC+p8TpJqCHlGIR2m3bbV/MoDWw==",
+        "value": "AOw8s4IAAAAAaUApynxuYPjqzPYL4RKoGI_l3nKrgOoy",
         "required": false,
         "placeholder": null,
         "meta": {}
       },
       {
-        "name": "feedback",
-        "field_type": "textarea",
-        "value": null,
-        "required": false,
-        "placeholder": null,
-        "meta": {}
-      },
-      {
-        "name": "include_email",
-        "field_type": "checkbox",
-        "value": null,
+        "name": "gbv",
+        "field_type": "hidden",
+        "value": "1",
         "required": false,
         "placeholder": null,
         "meta": {}
       }
     ],
     "enctype": null,
-    "form_id": "code-search-feedback-form",
-    "classes": []
-  },
-  {
-    "action": "https://github.com/search/custom_scopes",
-    "method": "post",
-    "inputs": [
-      {
-        "name": "authenticity_token",
-        "field_type": "hidden",
-        "value": "iNwvn2YqHn3md5nlDo3bK/Wonix+6W1+psPdiuACXhrRZ8Q47ZjAESpoek1fDOB2hq1EkGcQVaZAhf15CNYtzQ==",
-        "required": false,
-        "placeholder": null,
-        "meta": {}
-      },
-      {
-        "name": "custom_scope_id",
-        "field_type": "hidden",
-        "value": null,
-        "required": false,
-        "placeholder": null,
-        "meta": {}
-      },
-      {
-        "name": "custom_scope_name",
-        "field_type": "text",
-        "value": null,
-        "required": true,
-        "placeholder": "github-ruby",
-        "meta": {}
-      },
-      {
-        "name": null,
-        "field_type": "hidden",
-        "value": "upbCw98bUIxPIP1wlitIHjc/02AU0km1XTvbMinigf+5Bj61XUhpqfAQoYG5ruAt8U/3t0KQHE+vIGbP+n8Zpw==",
-        "required": false,
-        "placeholder": null,
-        "meta": {}
-      },
-      {
-        "name": "custom_scope_query",
-        "field_type": "text",
-        "value": null,
-        "required": true,
-        "placeholder": "(repo:mona/a OR repo:mona/b) AND lang:python",
-        "meta": {}
-      }
-    ],
-    "enctype": null,
-    "form_id": "custom-scopes-dialog-form",
+    "form_id": null,
     "classes": []
   }
 ]

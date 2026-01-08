@@ -13,7 +13,6 @@ class Severity(Enum):
 class VulnType(Enum):
     SQLI = "SQL Injection"
     XSS = "Cross-Site Scripting"
-    SSRF = "Server-Side Request Forgery"
     RCE = "Remote Code Execution"
 
 

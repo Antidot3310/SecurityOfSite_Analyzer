@@ -4,7 +4,8 @@ from pathlib import Path
 import json, html, urllib.parse, re
 from src.scanner.types import Payload
 
-SQL_ERRORS_PATH = Path(__file__).parent / "data" / "sql_errors.json"
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+SQL_ERRORS_PATH = PROJECT_ROOT / "data" / "sql_errors.json"
 try:
     SQL_ERROR_LIST = [
         s.lower() for s in json.loads(SQL_ERRORS_PATH.read_text(encoding="utf-8"))
