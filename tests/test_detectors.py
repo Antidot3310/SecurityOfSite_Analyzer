@@ -1,10 +1,12 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.scanner.detectors import (
     detect_sql_error,
-    detect_reflection,
+    detect_patterns,
     detect_time_delay,
     run_detectors,
     SQL_ERROR_LIST,
@@ -46,13 +48,32 @@ def test_detect_sql_error_positive():
     assert res["matched"] is True
 
 
-def test_detect_reflection_positive():
-    base = snap("hello")
-    inj = snap("<script>alert(1)</script>")
+def test_detect_sql_error_negative():
+    base = snap("ok")
+    inj = snap("still ok")
 
-    res = detect_reflection(base, inj, payload("<script>alert(1)</script>"))
-    assert res["matched"] is True
-    assert "alert" in res["evidence"]
+    res = detect_sql_error(base, inj, payload("' OR 1=1"))
+    assert res["matched"] is False
+
+
+@pytest.mark.parametrize(
+    "base_body,inj_body,expected",
+    [
+        ("hello", "<script>alert(1)</script>", True),  # positive
+        ("hello", "just text", False),  # negative
+        (
+            "<script>alert(1)</script>",
+            "<script>alert(1)</script>",
+            False,
+        ),  # base == inj
+    ],
+)
+def test_detect_patterns_positive(base_body, inj_body, expected):
+    base = snap(base_body)
+    inj = snap(inj_body)
+
+    res = detect_patterns(base, inj, payload("<script>alert(1)</script>"))
+    assert res["matched"] is expected
 
 
 def test_detect_time_delay_positive():
@@ -61,6 +82,14 @@ def test_detect_time_delay_positive():
 
     res = detect_time_delay(base, inj, payload("sleep", MatchType.TIME_BASED))
     assert res["matched"] is True
+
+
+def test_detect_time_delay_negative():
+    base = snap("ok", 100)
+    inj = snap("ok", 900)
+
+    res = detect_time_delay(base, inj, payload("sleep", MatchType.TIME_BASED))
+    assert res["matched"] is False
 
 
 def test_run_detectors_aggregates(monkeypatch):

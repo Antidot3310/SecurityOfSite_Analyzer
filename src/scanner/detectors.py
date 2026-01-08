@@ -1,4 +1,3 @@
-# src/detectors.py
 from typing import List, Dict
 from pathlib import Path
 import json, html, urllib.parse, re
@@ -14,26 +13,35 @@ except Exception:
     SQL_ERROR_LIST = []
 
 
-def detect_reflection(base, injected, payload: Payload) -> Dict:
+def detect_patterns(base, injected, payload) -> Dict:
     base_text = (base.body or "").lower()
     inj_text = (injected.body or "").lower()
+
+    patterns = []
+    patterns.extend(payload.evidence_patterns or [])
+
     raw = (payload.payload or "").lower()
+    if raw:
+        patterns.extend(
+            {
+                raw,
+                html.escape(raw),
+                urllib.parse.quote(raw),
+                re.sub(r"\s+", "", raw),
+            }
+        )
 
-    if "alert(" in raw:
-        candidate = "alert(1)"
-    else:
-        candidate = re.sub(r"[^a-z0-9]", "", raw)[:8]
-        if len(candidate) < 4:
-            return {"matched": False, "evidence": ""}
-
-    variants = {candidate, html.escape(candidate), urllib.parse.quote(candidate)}
-    for v in variants:
-        if v in inj_text and v not in base_text:
-            pos = inj_text.find(v)
+    for p in patterns:
+        p = p.lower()
+        if p and p in inj_text and p not in base_text:
+            pos = inj_text.find(p)
             start = max(0, pos - 30)
-            end = pos + len(v) + 30
-            evidence = (injected.body or "")[start:end]
-            return {"matched": True, "evidence": evidence}
+            end = pos + len(p) + 30
+            return {
+                "matched": True,
+                "evidence": (injected.body or "")[start:end],
+            }
+
     return {"matched": False, "evidence": ""}
 
 
@@ -56,7 +64,7 @@ def detect_time_delay(base, injected, payload: Payload) -> Dict:
     return {"matched": False, "evidence": ""}
 
 
-DETECTORS = (detect_sql_error, detect_reflection, detect_time_delay)
+DETECTORS = (detect_sql_error, detect_patterns, detect_time_delay)
 
 
 def run_detectors(base, injected, payload: Payload) -> List[Dict]:
