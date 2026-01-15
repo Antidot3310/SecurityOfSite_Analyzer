@@ -105,3 +105,96 @@ def test_scan_forms_session_reuse(monkeypatch):
     forms = [{"form_id": 1}, {"form_id": 2}]
     scan_forms(forms, [make_payload("x")], rate_limit=0)
     assert calls == 2
+
+
+def test_demo_integration(tmp_path, monkeypatch):
+    """
+    Integration-style demo:
+    - create a small HTML page with one form (name=q)
+    - parse forms via extract_forms
+    - monkeypatch send_form_request so that:
+        * baseline (values are empty) -> returns a "clean" snapshot
+        * requests where q == payload.payload -> return injected snapshot with evidence
+    - run scan_forms and assert we got findings for 'q'
+    """
+    # local imports (already in file scope in your tests file)
+    from src.extractor.extractor import extract_forms
+    from src.scanner.scanner import scan_forms, ResponseSnapshot
+    from src.scanner.types import Payload, VulnType, Severity, MatchType
+
+    # 1) create a simple HTML page
+    html = """
+    <!doctype html>
+    <html>
+      <body>
+        <form id="demo" action="http://example/submit" method="get">
+          <input name="q" value="">
+          <input type="submit" value="Send">
+        </form>
+      </body>
+    </html>
+    """
+    # write to a temp file (optional — we pass html directly to extract_forms)
+    p = tmp_path / "page_demo.html"
+    p.write_text(html, encoding="utf-8")
+
+    # 2) parse forms
+    forms = extract_forms(html, base_url="https://example.com")
+    assert len(forms) >= 1
+    form = forms[0].to_dict()  # use dict form for scanner functions
+
+    # 3) prepare payloads (one payload that should trigger reflected XSS)
+    payload = Payload(
+        payload_id="xss-demo",
+        payload="<script>alert(1)</script>",
+        vuln_type=VulnType.XSS,
+        severity=Severity.MEDIUM,
+        match_type=MatchType.REFLECTED,
+        evidence_patterns=[],
+    )
+    payloads = [payload]
+
+    # 4) create baseline and injected snapshots to be returned by fake send_form_request
+    base_snap = ResponseSnapshot(
+        url="http://example/submit",
+        status_code=200,
+        body="Hello",
+        body_len=5,
+        response_time=100,
+    )
+    inj_body = f"some page content... {payload.payload} ...rest"
+    inj_snap = ResponseSnapshot(
+        url="http://example/submit?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+        status_code=200,
+        body=inj_body,
+        body_len=len(inj_body),
+        response_time=150,
+    )
+
+    # 5) fake send_form_request: return base_snap when values are empty (baseline),
+    #    otherwise return inj_snap when payload present in data
+    def fake_send_form_request(form_arg, data_arg, timeout=8, session=None):
+        # data_arg is a dict of parameters / values
+        if not data_arg:
+            return base_snap
+        # check if any value equals the payload string -> injected snapshot
+        for v in data_arg.values():
+            if v == payload.payload:
+                return inj_snap
+        # otherwise return base (e.g., baseline or other fields)
+        return base_snap
+
+    monkeypatch.setattr("src.scanner.scanner.send_form_request", fake_send_form_request)
+
+    # 6) run scan_forms with rate_limit=0 for speed
+    findings = scan_forms([form], payloads, rate_limit=0)
+
+    # 7) assertions: we expect at least one finding for field 'q' and evidence contains 'alert'
+    assert isinstance(findings, list)
+    assert len(findings) >= 1, "Expected at least one finding in demo integration"
+    found = False
+    for f in findings:
+        if f.field_name == "q" or getattr(f, "field_name", "") == "q":
+            assert "alert" in f.evidence.lower()
+            found = True
+    assert found, "Did not find expected finding for field 'q'"

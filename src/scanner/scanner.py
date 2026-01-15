@@ -21,7 +21,16 @@ class Finding:
     payload: Payload
 
     def to_dict(self):
-        return asdict(self)
+        return {
+            "form_index": self.form_index,
+            "field_name": self.field_name,
+            "evidence": self.evidence,
+            "payload": (
+                self.payload.to_dict()
+                if hasattr(self.payload, "to_dict")
+                else self.payload
+            ),
+        }
 
 
 @dataclass
@@ -65,9 +74,14 @@ def send_form_request(
     def _make_request(s: requests.Session):
         try:
             start = monotonic()
-            resp = s.request(method, action, params=None if method == "POST" else data,
-                             data=data if method == "POST" else None,
-                             timeout=timeout, headers=headers)
+            resp = s.request(
+                method,
+                action,
+                params=None if method == "POST" else data,
+                data=data if method == "POST" else None,
+                timeout=timeout,
+                headers=headers,
+            )
             elapsed_ms = (monotonic() - start) * 1000
         except requests.RequestException as e:
             logger.warning("Request failed for %s: %s", action, e)
@@ -122,7 +136,11 @@ def scan_field(
                         )
                     )
         except Exception:
-            logger.exception("scan_field error for field=%s payload=%s", name, getattr(payload, "payload", None))
+            logger.exception(
+                "scan_field error for field=%s payload=%s",
+                name,
+                getattr(payload, "payload", None),
+            )
             continue
 
     return findings
@@ -143,17 +161,29 @@ def scan_form(
     findings: List[Finding] = []
     for inp in inputs:
         findings.extend(
-            scan_field(form, inp, base_snapshot, payloads, base_data, rate_limit=rate_limit, session=session)
+            scan_field(
+                form,
+                inp,
+                base_snapshot,
+                payloads,
+                base_data,
+                rate_limit=rate_limit,
+                session=session,
+            )
         )
     return findings
 
 
-def scan_forms(forms: List[dict], payloads: List[Payload], rate_limit: float = 0.5) -> List[Finding]:
+def scan_forms(
+    forms: List[dict], payloads: List[Payload], rate_limit: float = 0.5
+) -> List[Finding]:
     findings: List[Finding] = []
     with requests.Session() as session:
         for form in forms:
             try:
-                findings.extend(scan_form(form, payloads, session=session, rate_limit=rate_limit))
+                findings.extend(
+                    scan_form(form, payloads, session=session, rate_limit=rate_limit)
+                )
             except Exception:
                 logger.exception("error scanning form %s", form.get("form_id"))
     return findings
