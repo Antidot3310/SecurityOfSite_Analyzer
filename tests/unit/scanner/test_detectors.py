@@ -1,9 +1,4 @@
-import os
-import sys
-
 import pytest
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.scanner.detectors import (
     detect_sql_error,
     detect_patterns,
@@ -36,24 +31,19 @@ def payload(val: str, match=MatchType.REFLECTED):
     )
 
 
-def test_detect_sql_error_positive():
-    if not SQL_ERROR_LIST:
-        return None
-
-    err = SQL_ERROR_LIST[0]
-    base = snap("ok")
-    inj = snap(f"error happened: {err}")
-
-    res = detect_sql_error(base, inj, payload("' OR 1=1"))
-    assert res["matched"] is True
-
-
-def test_detect_sql_error_negative():
-    base = snap("ok")
-    inj = snap("still ok")
+@pytest.mark.parametrize(
+    "base_body,inj_body,expected",
+    [
+        ("ok", f"error happened: {SQL_ERROR_LIST[0]}", True),
+        ("ok", "still ok", False),
+    ],
+)
+def test_detect_sql_error(base_body, inj_body, expected):
+    base = snap(base_body)
+    inj = snap(inj_body)
 
     res = detect_sql_error(base, inj, payload("' OR 1=1"))
-    assert res["matched"] is False
+    assert res["matched"] == expected
 
 
 @pytest.mark.parametrize(
@@ -68,7 +58,7 @@ def test_detect_sql_error_negative():
         ),  # base == inj
     ],
 )
-def test_detect_patterns_positive(base_body, inj_body, expected):
+def test_detect_patterns(base_body, inj_body, expected):
     base = snap(base_body)
     inj = snap(inj_body)
 
@@ -76,20 +66,19 @@ def test_detect_patterns_positive(base_body, inj_body, expected):
     assert res["matched"] is expected
 
 
-def test_detect_time_delay_positive():
-    base = snap("ok", 100)
-    inj = snap("ok", 2600)
+@pytest.mark.parametrize(
+    "base_time,inj_time,expected",
+    [
+        (100, 2600, True),
+        (100, 900, False),
+    ],
+)
+def test_detect_time_delay(base_time, inj_time, expected):
+    base = snap("ok", base_time)
+    inj = snap("ok", inj_time)
 
     res = detect_time_delay(base, inj, payload("sleep", MatchType.TIME_BASED))
-    assert res["matched"] is True
-
-
-def test_detect_time_delay_negative():
-    base = snap("ok", 100)
-    inj = snap("ok", 900)
-
-    res = detect_time_delay(base, inj, payload("sleep", MatchType.TIME_BASED))
-    assert res["matched"] is False
+    assert res["matched"] == expected
 
 
 def test_run_detectors_aggregates(monkeypatch):

@@ -1,103 +1,33 @@
-from dataclasses import dataclass, asdict
-from time import sleep, monotonic
-from typing import List, Optional, Any
-import logging
+"""
+Модуль реализует логику сканирования целевого ресурса
+на уязвимости (для каждого отдельного поля запускает детекторы)
+
+Функции:
+    scan_field()
+    scan_form()
+    scan_forms()
+"""
+
 import requests
+from time import sleep
+from typing import List, Optional
 
 import src.scanner.detectors as detector
 from .types import Payload
+from .models import (
+    Finding,
+    ResponseSnapshot,
+    build_base_line,
+    build_test_data,
+    send_form_request,
+)
+from src.config import RATE_LIMIT
+from src.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-BODY_PREVIEW = 512
+
 ALLOWED_INPUT_TYPES = {"text", "search", "textarea", "url", "email", "tel"}
-
-
-@dataclass
-class Finding:
-    form_index: Optional[Any]
-    field_name: str
-    evidence: str
-    payload: Payload
-
-    def to_dict(self):
-        return {
-            "form_index": self.form_index,
-            "field_name": self.field_name,
-            "evidence": self.evidence,
-            "payload": (
-                self.payload.to_dict()
-                if hasattr(self.payload, "to_dict")
-                else self.payload
-            ),
-        }
-
-
-@dataclass
-class ResponseSnapshot:
-    url: str
-    status_code: int
-    body: str
-    body_len: int
-    response_time: float
-
-    def to_dict(self):
-        return asdict(self)
-
-
-def build_test_data(base_data: dict, input_field: dict, payload: Payload) -> dict:
-    d = dict(base_data)
-    name = input_field.get("name")
-    if name:
-        d[name] = payload.payload
-    return d
-
-
-def build_base_line(inputs: List[dict]) -> dict:
-    return {inp["name"]: inp.get("value", "") for inp in inputs if inp.get("name")}
-
-
-def send_form_request(
-    form: dict,
-    data: dict,
-    timeout: int = 8,
-    session: Optional[requests.Session] = None,
-) -> Optional[ResponseSnapshot]:
-    action = form.get("action")
-    if not action:
-        logger.debug("Form has no action attribute: %s", form.get("form_id"))
-        return None
-
-    method = (form.get("method") or "GET").upper()
-    headers = {"User-Agent": "MVP-Scanner/0.1"}
-
-    def _make_request(s: requests.Session):
-        try:
-            start = monotonic()
-            resp = s.request(
-                method,
-                action,
-                params=None if method == "POST" else data,
-                data=data if method == "POST" else None,
-                timeout=timeout,
-                headers=headers,
-            )
-            elapsed_ms = (monotonic() - start) * 1000
-        except requests.RequestException as e:
-            logger.warning("Request failed for %s: %s", action, e)
-            return None
-        return ResponseSnapshot(
-            url=getattr(resp, "url", action),
-            status_code=getattr(resp, "status_code", resp.status_code),
-            body=(resp.text or "")[:BODY_PREVIEW],
-            body_len=len(resp.text or ""),
-            response_time=elapsed_ms,
-        )
-
-    if session is None:
-        with requests.Session() as s:
-            return _make_request(s)
-    return _make_request(session)
 
 
 def scan_field(
@@ -109,21 +39,57 @@ def scan_field(
     rate_limit: float = 0.5,
     session: Optional[requests.Session] = None,
 ) -> List[Finding]:
+    """
+    Сканирует каждое отдельное поле
+    """
     findings: List[Finding] = []
 
     name = inp.get("name")
+    # Отсеиваем неподдерживаемые типы
     if not name or (inp.get("type") or "text").lower() not in ALLOWED_INPUT_TYPES:
+        logger.warning(
+            "skipping field",
+            extra={
+                "form_id": form.get("form_id"),
+                "field": name,
+                "type": inp.get("type") or "text",
+            },
+        )
         return findings
 
     for payload in payloads:
         try:
+            # Логирование отправки полезной нагрузки
+            logger.debug(
+                "sending payload",
+                extra={
+                    "form_id": form.get("form_id"),
+                    "field": inp.get("name"),
+                    "payload_id": payload.payload_id,
+                    "payload": payload.payload,
+                },
+            )
+            # Составление, отправка запроса с payload, засекание времени
             test_data = build_test_data(base_data, inp, payload)
             test_snapshot = send_form_request(form, test_data, session=session)
+            # Логирование полученного ответа
+            if test_snapshot:
+                logger.debug(
+                    "test snapshot created",
+                    extra={
+                        "form_id": form.get("form_id"),
+                        "status": test_snapshot.status_code,
+                        "body_len": len(test_snapshot.body),
+                        "response_time": test_snapshot.response_time,
+                    },
+                )
+
             if rate_limit:
                 sleep(rate_limit)
             if not test_snapshot:
                 continue
 
+            # Проводим детектирование
             dets = detector.run_detectors(base_line_snapshot, test_snapshot, payload)
             for d in dets:
                 if d.get("matched"):
@@ -135,11 +101,15 @@ def scan_field(
                             payload=payload,
                         )
                     )
-        except Exception:
+        except Exception as e:
             logger.exception(
-                "scan_field error for field=%s payload=%s",
-                name,
-                getattr(payload, "payload", None),
+                "scan_field error",
+                extra={
+                    "form_id": form.get("form_id"),
+                    "field": name,
+                    "payload": payload.payload,
+                    "error": str(e),
+                },
             )
             continue
 
@@ -150,14 +120,34 @@ def scan_form(
     form: dict,
     payloads: List[Payload],
     session: Optional[requests.Session] = None,
-    rate_limit: float = 0.5,
+    rate_limit: float = RATE_LIMIT,
 ) -> List[Finding]:
+    """
+    Сканирует отдельную форму
+    На данном этапе отправляется базовый запрос
+    """
     inputs = form.get("inputs", []) or []
+    # Создание базовой линии
     base_data = build_base_line(inputs)
     base_snapshot = send_form_request(form, base_data, session=session)
+    # Логирование результата создания базовой линии
+    if base_snapshot:
+        body_len = len(base_snapshot.body)
+        logger.debug(
+            "baseline created",
+            extra={
+                "form_id": form.get("form_id"),
+                "status": base_snapshot.status_code,
+                "body_len": body_len,
+                "response_time": base_snapshot.response_time,
+            },
+        )
     if not base_snapshot:
-        logger.info("Couldn't create baseline for form %s", form.get("form_id"))
+        logger.warning(
+            "Couldn't create baseline for form", extra={"form_id": form.get("form_id")}
+        )
         return []
+
     findings: List[Finding] = []
     for inp in inputs:
         findings.extend(
@@ -167,23 +157,37 @@ def scan_form(
                 base_snapshot,
                 payloads,
                 base_data,
-                rate_limit=rate_limit,
-                session=session,
+                rate_limit,
+                session,
             )
         )
     return findings
 
 
 def scan_forms(
-    forms: List[dict], payloads: List[Payload], rate_limit: float = 0.5
+    forms: List[dict], payloads: List[Payload], rate_limit: float = 1
 ) -> List[Finding]:
+    """
+    Сканирование списка форм
+    """
+    logger.info("Started scanning forms", extra={"forms_count": len(forms)})
     findings: List[Finding] = []
     with requests.Session() as session:
         for form in forms:
             try:
-                findings.extend(
-                    scan_form(form, payloads, session=session, rate_limit=rate_limit)
+                findings.extend(scan_form(form, payloads, session, rate_limit))
+                logger.info(
+                    "Form scan finished",
+                    extra={
+                        "form_id": form.get("form_id"),
+                        "findings_count": len(findings),
+                    },
                 )
-            except Exception:
-                logger.exception("error scanning form %s", form.get("form_id"))
+            except Exception as e:
+                logger.exception(
+                    "Error scanning form",
+                    extra={"form_id": form.get("form_id"), "error": str(e)},
+                )
+                continue
+    logger.info("Finished scanning forms", extra={"forms_count": len(forms)})
     return findings

@@ -10,7 +10,7 @@ __pycache__/
 
 # Logs and local data
 *.log
-results.json
+Results.json
 debug.log
 
 # VS Code

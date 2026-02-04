@@ -1,10 +1,7 @@
-import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.scanner.types import Payload, VulnType, Severity, MatchType
 
 
-def test_payload_to_dict_serializes_enums():
+def test_payload_to_dict():
     payload = Payload(
         payload_id="p1",
         payload="test",

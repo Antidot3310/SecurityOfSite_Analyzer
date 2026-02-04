@@ -1,16 +1,12 @@
-import os
-import sys
-from urllib.parse import quote
 import requests
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from urllib.parse import quote
 from src.extractor.fetcher import fetch_info
 
 
 def make_file(tmp_path, name="x.txt", content="test"):
-    p = tmp_path / name
-    p.write_text(content, encoding="utf-8")
-    return p
+    f = tmp_path / name
+    f.write_text(content, encoding="utf-8")
+    return f
 
 
 def test_file_success(tmp_path):
@@ -59,4 +55,4 @@ def test_http_success_and_http_error(monkeypatch):
     )
     r2 = fetch_info("http://bad.example")
     assert r2["ok"] is False
-    assert r2["status"] == 404 or "404" in (r2.get("error") or "")
+    assert r2["status"] == 404

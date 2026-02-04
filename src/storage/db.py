@@ -1,10 +1,16 @@
+"""
+Модуль сохранения запросов к ресурсу в бд
+"""
+
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Iterator
 from contextlib import contextmanager
+from src.config import DEFAULT_DB_PATH
+from src.logger import get_logger
 
-DEFAULT_DB_PATH = "data/data.db"
+logger = get_logger(__name__)
 
 
 def ensure_dir_for_path(path: str) -> None:
@@ -25,7 +31,8 @@ def db_connect(path: Optional[str] = None) -> Iterator[sqlite3.Cursor]:
     try:
         yield cursor
         conn.commit()
-    except Exception:
+    except Exception as e:
+        logger.exception("DB transaction failed", extra={"path": path, "error": str(e)})
         conn.rollback()
         raise
     finally:
@@ -34,6 +41,9 @@ def db_connect(path: Optional[str] = None) -> Iterator[sqlite3.Cursor]:
 
 
 def init_db(path: Optional[str] = None):
+    """
+    Инициализирует бд по пути path
+    """
     if path is None:
         path = DEFAULT_DB_PATH
     with db_connect(path) as cursor:
@@ -50,6 +60,7 @@ def init_db(path: Optional[str] = None):
             )
             """
         )
+        logger.info("DB initialized", extra={"path": path})
 
 
 def save_scan(
@@ -58,6 +69,15 @@ def save_scan(
     meta: Optional[dict] = None,
     path: Optional[str] = None,
 ) -> int:
+    """
+    Сохранение записи
+
+    Параметры:
+        target - адрес обработанного ресурса
+        result_json - строка из словаря вида: {"forms": ..., "findings": ...}
+        meta - словарь вида: {"count": ..., "status_code": ..., "response_size": ...}
+        path - путь к бд
+    """
     if path is None:
         path = DEFAULT_DB_PATH
 
@@ -74,10 +94,15 @@ def save_scan(
             """,
             (target, ts, results_json, count, status_code, response_size),
         )
+        logger.info("scan saved", extra={"target": target, "scan_id": cursor.lastrowid})
         return cursor.lastrowid
 
 
 def get_scan(scan_id: int, path: Optional[str] = None) -> Optional[dict]:
+    """
+    Получение скана с заданным id
+    по пути path
+    """
     if path is None:
         path = DEFAULT_DB_PATH
     with db_connect(path) as cursor:

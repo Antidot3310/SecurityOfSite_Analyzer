@@ -1,18 +1,17 @@
-import os
-import sys
 from bs4 import BeautifulSoup
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.extractor.models import InputField, Form
 
 
-def test_inputfield_factories_and_select():
-    html = (
+def test_field_factories():
+    """
+    Тест правильного создания полей
+    """
+    test_html = (
         '<input name="u" type="text" value="john" required placeholder="p">'
         '<textarea name="b">txt</textarea>'
         '<select name="c"><option value="1" selected>1</option></select>'
     )
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(test_html, "html.parser")
 
     f_input = InputField.from_input_tag(soup.find("input"))
     assert (f_input.name, f_input.field_type, f_input.value, f_input.required) == (
@@ -37,7 +36,10 @@ def test_inputfield_factories_and_select():
     )
 
 
-def test_form_from_soup_form_and_defaults():
+def test_from_soup_form():
+    """
+    Тест создания валиднй формы
+    """
     html = '<form id="f" class="c1 c2" action="/go" method="POST" enctype="multipart/form-data"><input name="x"></form>'
     form_tag = BeautifulSoup(html, "html.parser").find("form")
 
