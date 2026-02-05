@@ -99,6 +99,9 @@ def scan_field(
                             field_name=name,
                             evidence=d.get("evidence") or "",
                             payload=payload,
+                            response_time_ms=test_snapshot.response_time * 1000,
+                            body_len=len(test_snapshot.body),
+                            url=test_snapshot.url,
                         )
                     )
         except Exception as e:

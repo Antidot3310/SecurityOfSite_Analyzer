@@ -33,6 +33,9 @@ class Finding:
     # error code, pattern in response, time delay, etc.
     evidence: str
     payload: Payload
+    response_time_ms: float
+    body_len: int
+    url: str
 
     def to_dict(self):
         return {
@@ -40,6 +43,9 @@ class Finding:
             "field_name": self.field_name,
             "evidence": self.evidence,
             "payload": (self.payload.to_dict()),
+            "response_time_ms": self.response_time_ms,
+            "body_len": self.body_len,
+            "url": self.url,
         }
 
 

@@ -26,6 +26,7 @@ from src.extractor.extractor import extract_forms, fetch_html
 from src.storage.db import init_db, save_scan
 from src.scanner.scanner import scan_forms
 from src.scanner.types import load_payloads
+from src.agregator.io import export_findings, sample_findings
 from src.config import RATE_LIMIT, PAYLOADS_PATH
 from src.logger import get_logger
 
@@ -105,10 +106,9 @@ def api_scan():
     findings = scan_forms(forms, payloads, rate_limit=RATE_LIMIT)
 
     # сохранение в бд
-    findings_jsonable = [f.to_dict() for f in findings]
     scan_id = save_scan(
         target=url,
-        results_json=json.dumps({"forms": forms, "findings": findings_jsonable}),
+        results_json=json.dumps({"forms": forms, "findings": [f.to_dict() for f in findings]}),
         meta={
             "count": len(findings),
             "status_code": 200,
@@ -129,13 +129,14 @@ def api_scan():
             "findings_count": len(findings),
         },
     )
+    normalized_findings = export_findings(findings, url=url, scan_id=scan_id)
     # возврат находок в удобном формате
     return (
         jsonify(
             {
                 "scan_id": scan_id,
                 "findings_count": len(findings),
-                "findings": findings_jsonable,
+                "findings": sample_findings(normalized_findings, n=10),
             }
         ),
         200,

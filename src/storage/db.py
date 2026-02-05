@@ -68,7 +68,7 @@ def save_scan(
     results_json: str,
     meta: Optional[dict] = None,
     path: Optional[str] = None,
-) -> int:
+) -> int | None:
     """
     Сохранение записи
 
