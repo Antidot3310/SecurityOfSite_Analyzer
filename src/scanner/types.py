@@ -23,27 +23,27 @@ logger = get_logger(__name__)
 
 
 class Severity(Enum):
-    INFO = "Info"
-    LOW = "Low"
-    MEDIUM = "Medium"
-    HIGH = "High"
-    CRITICAL = "Critical"
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
 
 
 class VulnType(Enum):
-    SQLI = "SQL Injection"
-    XSS = "Cross-Site Scripting"
+    SQLI = "SQLI"
+    XSS = "XSS"
 
 
 class MatchType(Enum):
-    BOOLEAN = "boolean"
-    UNION = "union"
-    TIME_BASED = "time-based"
-    REFLECTED = "reflected"
-    STORED = "stored"
-    DOM_BASED = "DOM-based"
-    POLYGLOT = "polyglot"
-    ERROR_BASED = "error-based"
+    BOOLEAN = "BOOLEAN"
+    UNION = "UNION"
+    TIME_BASED = "TIME_BASED"
+    REFLECTED = "REFLECTED"
+    STORED = "STORED"
+    DOM_BASED = "DOM_BASED"
+    POLYGLOT = "POLYGLOT"
+    ERROR_BASED = "ERROR_BASED"
 
 
 @dataclass
@@ -94,7 +94,9 @@ def load_payloads(path: str) -> List[Payload]:
                 )
             )
         except Exception as e:
-            logger.error(f"Problem during loading payload {p.get('payload_id')}: {str(e)}")
+            logger.error(
+                f"Problem during loading payload {p.get('payload_id')}: {str(e)}"
+            )
             # не обрываем workflow
             continue
     logger.info("Loaded payloads", extra={"path": path, "count": len(out)})

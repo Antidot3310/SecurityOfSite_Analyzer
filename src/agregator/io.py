@@ -18,7 +18,7 @@ def normalize_finding(f: Finding, idx: int, scan_id: Optional[int]) -> dict | No
         "field_name": f.field_name,
         "payload_index": f.payload.payload_id,
         "payload": f.payload.payload,
-        "vulnerability_type": f.payload.vuln_type.name,
+        "vuln_type": f.payload.vuln_type.name,
         "severity": f.payload.severity.name,
         "match_type": f.payload.match_type.name,
         "evidence": f.evidence,
