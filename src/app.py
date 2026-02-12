@@ -29,6 +29,7 @@ from src.scanner.types import load_payloads
 from src.agregator.io import export_findings, sample_findings
 from src.config import RATE_LIMIT, PAYLOADS_PATH
 from src.logger import get_logger
+from src.agregator.rulebased import aggregate_findings
 
 logger = get_logger(__name__)
 
@@ -102,13 +103,17 @@ def api_scan():
 
     # получение уязвимостей путем отправки пэйлойдов и их анализа
     payloads = load_payloads(PAYLOADS_PATH)
-    logger.info("Loaded payloads", extra={"count": len(payloads), "path": PAYLOADS_PATH})
+    logger.info(
+        "Loaded payloads", extra={"count": len(payloads), "path": PAYLOADS_PATH}
+    )
     findings = scan_forms(forms, payloads, rate_limit=RATE_LIMIT)
 
     # сохранение в бд
     scan_id = save_scan(
         target=url,
-        results_json=json.dumps({"forms": forms, "findings": [f.to_dict() for f in findings]}),
+        results_json=json.dumps(
+            {"forms": forms, "findings": [f.to_dict() for f in findings]}
+        ),
         meta={
             "count": len(findings),
             "status_code": 200,
@@ -129,14 +134,15 @@ def api_scan():
             "findings_count": len(findings),
         },
     )
-    normalized_findings = export_findings(findings, url=url, scan_id=scan_id)
+    normalized_findings = export_findings(findings, scan_id=scan_id)
+    aggregated_findings = aggregate_findings(normalized_findings)
     # возврат находок в удобном формате
     return (
         jsonify(
             {
                 "scan_id": scan_id,
                 "findings_count": len(findings),
-                "findings": sample_findings(normalized_findings, n=10),
+                "aggregated_findings": aggregated_findings,
             }
         ),
         200,
