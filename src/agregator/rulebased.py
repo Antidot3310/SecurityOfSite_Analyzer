@@ -67,8 +67,8 @@ def compute_group_score(group: List[Dict], rules: Dict) -> Tuple[float, List[str
         notes.append(f"distinct_match_types={len([m for m in match_types if m])}")
 
     # normalize to 0..10
-    if score > 10:
-        score = 10
+    # if score > 10:
+    #    score = 10
 
     return score, notes
 

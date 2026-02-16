@@ -36,7 +36,7 @@ def scan_field(
     base_line_snapshot: ResponseSnapshot,
     payloads: List[Payload],
     base_data: dict,
-    rate_limit: float = 0.5,
+    rate_limit: float = RATE_LIMIT,
     session: Optional[requests.Session] = None,
 ) -> List[Finding]:
     """

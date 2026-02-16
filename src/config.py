@@ -1,11 +1,12 @@
 """
 Предоставляет конфигурационные параметры для приложения.
 """
+
 import os
 
 # HTTP / scanner
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "8"))
-RATE_LIMIT = float(os.getenv("RATE_LIMIT", "0.5"))
+RATE_LIMIT = float(os.getenv("RATE_LIMIT", "0.1"))
 
 # data
 PAYLOADS_PATH = os.getenv("PAYLOADS_PATH", "data/payloads.json")

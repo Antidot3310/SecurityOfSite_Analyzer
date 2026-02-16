@@ -105,7 +105,7 @@ def send_form_request(
                 timeout=timeout,
                 headers=headers,
             )
-            elapsed_ms = (monotonic() - start) * 1000
+            elapsed_ms = monotonic() - start
         except requests.RequestException as e:
             print(f"Request failed for: {action}, {e}")
             return None
