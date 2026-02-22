@@ -1,5 +1,5 @@
 import pytest
-from src.extractor.utils import url_to_path, safe_urljoin
+from src.extractor.utils import url_to_path
 
 
 @pytest.mark.parametrize(
@@ -29,16 +29,3 @@ from src.extractor.utils import url_to_path, safe_urljoin
 )
 def test_various_url_to_path(url, excepted):
     assert url_to_path(url) == excepted
-
-
-@pytest.mark.parametrize(
-    "base,url,expected",
-    [
-        ("https://a.com", "/p", "https://a.com/p"),
-        ("https://a.com/", "p", "https://a.com/p"),
-        ("", "/p", "/p"),
-        (None, "/p", "/p"),
-    ],
-)
-def test_safe_urljoin_variants(base, url, expected):
-    assert safe_urljoin(base, url) == expected

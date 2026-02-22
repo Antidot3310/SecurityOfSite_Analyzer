@@ -1,54 +1,78 @@
 """
 Модуль предоставляет функционал для
-получения html ресурса,
-парсинга всех форм на ней
+получения html кода ресурса,
+парсинга всех форм на нем.
 
 Функции:
     fetch_html() - получает html
-    extrct_forms() - извлекает формы из страницы
-        в виде списка объектов Form
+    extract_forms() - извлекает формы из страницы в виде списка объектов Form
 """
 
 from typing import List, Optional
 from bs4 import BeautifulSoup
 from src.extractor.models import Form
 from src.extractor.fetcher import fetch_info
-from src.config import REQUEST_TIMEOUT
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def fetch_html(url: str, timeout: int = REQUEST_TIMEOUT) -> Optional[str]:
-    info = fetch_info(url=url, timeout=timeout)
+def fetch_html(url: str) -> Optional[str]:
+    """
+    Получает HTML-код страницы по указанному URL.
+
+    Параметры:
+        url: адрес страницы
+
+    Возвращает:
+        HTML-код в виде строки или None, если запрос не удался.
+    """
+    info = fetch_info(url)
     if info.get("ok"):
-        return info.get("text")
+        return info.get("content")
     return None
 
 
-def extract_forms(html: str, base_url: Optional[str]) -> List[Form]:
+def extract_forms(html: str, url: str) -> Optional[List[Form]]:
     """
-    Маршализует все объекты типа form bs4
-    в тип models.Form
+    Извлекает все формы из HTML-кода страницы.
 
     Параметры:
-        html - html целевого ресурса
-        base_url - url целевого ресурса
+        html - html-код страницы
+        url - url страницы (используется для построения абсолютных ссылок)
+
+    Возвращает:
+        Список объектов Form. Если HTML пуст или произошла ошибка парсинга,
+        возвращается None.
     """
     if not html:
-        return []
+        logger.warning("Empty HTML in extractor", extra={"url": url})
+        return None
     try:
         soup = BeautifulSoup(html, "html.parser")
         forms = [
-            Form.from_soup_form(form_tag=f, base_url=base_url)
-            for f in soup.find_all("form")
+            Form.from_soup_form(form_tag=f, url=url) for f in soup.find_all("form")
         ]
-        logger.debug(
-            "parsed forms", extra={"base_url": base_url, "forms_count": len(forms)}
-        )
-        if len(forms) == 0:
-            logger.info("No forms found", extra={"base_url": base_url})
+        logger.debug("parsed forms", extra={"url": url, "forms_count": len(forms)})
         return forms
     except Exception as e:
-        logger.exception("Error extracting forms", extra={"error": str(e)})
-        return []
+        logger.exception("Error extracting forms", extra={"url": url, "error": str(e)})
+        return None
+
+
+def get_forms(url: str) -> Optional[List[Form]]:
+    """
+    Получает HTML по URL и извлекает из него формы.
+
+    Параметры:
+        url: адрес страницы
+
+    Возвращает:
+        Список объектов Form. Если HTML не удалось получить или произошла ошибка,
+        возвращается None.
+    """
+    html = fetch_html(url)
+    if html is None:
+        logger.warning("Cannot fetch HTML", extra={"url": url})
+        return None
+    return extract_forms(html, url)

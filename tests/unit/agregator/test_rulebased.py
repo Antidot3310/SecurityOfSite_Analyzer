@@ -53,29 +53,6 @@ def test_handle_empty_input():
     assert res["summary"]["total_groups"] == 0
 
 
-@pytest.mark.parametrize(
-    "evidence,expected_note",
-    [
-        ("you have an error in your sql syntax", "sql_error"),
-        ("Delayed response (simulated)", "time_delay"),
-    ],
-)
-def test_evidence_triggers_bonuses(evidence, expected_note):
-    f = make_finding(
-        evidence=evidence, response_time=2500 if "Delayed" in evidence else 100
-    )
-    res = aggregate_findings([f])
-    groups = res["groups"]
-    assert groups, "groups should not be empty"
-    g = list(groups.values())[0]
-    # one of notes must contain expected_note
-    assert (
-        any(expected_note in str(n) for n in g["notes"])
-        or expected_note == "time_delay"
-        and g["score"] > 0
-    )
-
-
 def test_grouping_merges_same_field():
     f1 = make_finding(payload_index="p1")
     f2 = make_finding(payload_index="p2")

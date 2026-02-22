@@ -1,84 +1,85 @@
 """
-Модуль предоставляет служебный функции работы с путями
+Модуль для работы с путями в URL и файловой системе.
 
-Предоставляет функции:
-    safe_urljoin (безопасный wrap),
-    url_to_path (преобразование вводимого пути в валидный)
+функции:
+    url_to_path  - преобразование file:// URL в системный путь
+
+Поддерживаемые формы file URL:
+    - file:///absolute/path
+    - file://localhost/absolute/path
+    - file:///C:/path
+    - file://localhost/C:/path
+    - file:relative/path
+    - file:./relative/path
+    - file:../relative/path
 """
 
 import os
-from typing import Optional
-from urllib.parse import urlparse, unquote, urljoin
+import posixpath
+from urllib.parse import urlparse, unquote
+from src.logger import get_logger
 
-
-def safe_urljoin(base: Optional[str], url: str) -> str:
-    """
-    Безопасное обработка base = None.
-
-    Параметры:
-        base - абсолютный url
-        url - относительный url
-    """
-    if not base:
-        return url
-    return urljoin(base, url)
+logger = get_logger(__name__)
 
 
 def url_to_path(url: str) -> str:
     """
-    Преобразует url с схемой "file" в валидный файловый путь
+    Преобразует file URL в путь файловой системы.
+
+    Параметры:
+        url: строка вида file://... или file:...
+
+    Возвращает:
+        Путь, пригодный для использования.
     """
     parsed = urlparse(url)
     path = unquote(parsed.path)
-    netloc = (parsed.netloc or "").lower()
+    netloc = parsed.netloc.lower() if parsed.netloc else ""
 
-    # Срезаем лишние слеши
+    # Удаляем начальные двойные слеши
     while path.startswith("//"):
         path = path[1:]
 
-    # Обработка относительных путей
-    if _is_relative_path_case(netloc, path):
-        return _handle_relative_path(netloc, path)
-
-    # Обработка localhost и пустого netloc
-    if _is_localhost_case(netloc):
-        return _handle_localhost_path(path)
-
-    # Общий случай: netloc + path
-    return f"{netloc}{path}"
-
-
-def _is_relative_path_case(netloc: str, path: str) -> bool:
-    return netloc == "." or (not netloc and not path.startswith("/"))
-
-
-def _handle_relative_path(netloc: str, path: str) -> str:
-    path = path.lstrip("/")
-
+    # Случай 1: относительный URL с netloc == '.'
     if netloc == ".":
-        if not path:
-            return "."
-        if path.startswith(("./", "../")):
-            return path
-        return f"./{path}"
+        path = path.lstrip("/")
+        return _format_relative_path(path)
 
-    # Случай без netloc и без ведущего слеша
+    # Случай 2: нет netloc
+    if not netloc:
+        if path.startswith("/"):
+            return _format_absolute_path(path)
+        else:
+            return _format_relative_path(path)
+
+    # Случай 3: localhost
+    if netloc == "localhost":
+        return _format_absolute_path(path)
+
+    raise ValueError(f"Unsupported file URL with netloc '{netloc}'.")
+
+
+def _format_relative_path(path: str) -> str:
+    """
+    Форматирует относительный путь.
+    """
+    if not path:
+        return "."
+
     if path.startswith(("./", "../")):
         return path
-    return f"./{path}" if path else "."
+    return f"./{path}"
 
 
-def _is_localhost_case(netloc: str) -> bool:
-    return not netloc or netloc == "localhost"
-
-
-def _handle_localhost_path(path: str) -> str:
-    if os.name == "nt" and _is_windows_absolute_path(path):
-        return path[1:]  # Убираем ведущий слеш для Windows путей
+def _format_absolute_path(path: str) -> str:
+    """
+    Форматирует абсолютный путь, нормализует.
+    """
+    if os.name == "nt" and _is_windows_drive_path(path):
+        path = path[1:]  
     return path
 
 
-def _is_windows_absolute_path(path: str) -> bool:
-    return (
-        len(path) > 2 and path.startswith("/") and path[1].isalpha() and path[2] == ":"
-    )
+def _is_windows_drive_path(path: str) -> bool:
+    """Проверяет, является ли путь Windows абсолютным с буквой диска в формате /X:/..."""
+    return len(path) > 2 and path[0] == "/" and path[2] == ":" and path[1].isalpha()

@@ -21,7 +21,6 @@
       }
     ],
     "enctype": null,
-    "form_id": "sqli",
-    "classes": []
+    "form_id": "sqli"
   }
 ]

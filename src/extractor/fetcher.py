@@ -1,12 +1,15 @@
 """
-Модулю предоставляет главным образом функцию
-берущую логику отправки и обработки запроса на url адрес
+Модуль для отправки запросов к ресурсам по URL.
+
+Поддерживаемые схемы:
+    - http, https: веб-страницы
+    - file: локальные файлы (URL вида file:///path/to/file)
 
 Функции:
-    create_response() - маршализует запрос в удобный словарь
-    fetch_local_file() - логика обработки для локальных файлов
-    fetch_web() - логика обработки для веб сервисов
-    fetch_info() - выполняет логику отправки и обработки запроса (возлагает ее на fetch_local_file() и detch_web())
+    fetch_info() - точка входа для получения содержимого по URL.
+    fetch_local_file() - чтение локального файла.
+    fetch_web() - загрузка данных с веб-ресурсов.
+    create_response() - формирование ответа.
 """
 
 import os
@@ -14,10 +17,30 @@ import requests
 from typing import Optional, Any, Dict
 from urllib.parse import urlparse
 from src.extractor.utils import url_to_path
-from src.config import REQUEST_TIMEOUT
+from src.config import REQUEST_TIMEOUT, DEFAULT_USER_AGENT
 from src.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class FetchResponse(dict):
+    """
+    Типизированный словарь ответа.
+
+    url: исходный URL
+    status: HTTP-статус (для файлов может быть 200 при успехе или отсутствовать)
+    length: длина содержимого в символах
+    ok: флаг успешности операции
+    error: описание ошибки (если есть)
+    content: содержимое ресурса (если успешно)
+    """
+
+    url: str
+    status: Optional[int]
+    length: Optional[int]
+    ok: bool
+    error: Optional[str]
+    content: Optional[str]
 
 
 def create_response(
@@ -26,63 +49,79 @@ def create_response(
     length: Optional[int] = None,
     ok: bool = False,
     error: Optional[str] = None,
-    text: Optional[str] = None,
-) -> Dict[str, Any]:
+    content: Optional[str] = None,
+) -> FetchResponse:
+    """
+    Формирует словарь-ответ для всех функций модуля.
+
+    Параметры:
+        url: исходный URL
+        status: HTTP-статус (или None для локальных файлов)
+        length: длина содержимого
+        ok: флаг успешности
+        error: текст ошибки
+        content: содержимое ресурса
+
+    Возвращает:
+        Словарь с описанными полями.
+    """
     return {
         "url": url,
         "status": status,
         "length": length,
         "ok": ok,
         "error": error,
-        "text": text,
+        "content": content,
     }
 
 
-def fetch_local_file(path: str) -> Dict[str, Any]:
+def fetch_local_file(file_path: str) -> Dict[str, Any]:
     """
-    Обрабатывает запрос на локальный файл
-
-    Параметр: path - путь к файлу
-    """
-    if not os.path.exists(path):
-        logger.warning("file not found", extra={"path": path})
-        return create_response(url=path, error="File not found")
-    try:
-        with open(path, "r", encoding="UTF-8") as file:
-            content = file.read()
-            # логирование успешного запроса
-            logger.debug(
-                "fetched resource",
-                extra={"url": path, "status": 200, "length": len(content)},
-            )
-        return create_response(
-            url=path, status=200, length=len(content), ok=True, text=content
-        )
-    except (IOError, OSError) as e:
-        return create_response(url=path, error=f"File read error: {e}")
-
-
-def fetch_web(url: str, timeout: int) -> Dict[str, Any]:
-    """
-    Обрабатывает  запросы на web сервисы
+    Обрабатывает запрос на локальный файл.
 
     Параметры:
-        url - url целевого сайта
-        timeout - максимальное время ожидания ответа от сервера
+        file_path: путь к файлу.
+
+    Возвращает:
+        Словарь-ответ (create_response).
+    """
+    if not os.path.exists(file_path):
+        logger.warning("file not found", extra={"path": file_path})
+        return create_response(url=file_path, error="File not found")
+    try:
+        with open(file_path, "r", encoding="UTF-8") as file:
+            content = file.read()
+            logger.debug(
+                "fetched resource",
+                extra={"url": file_path, "status": 200, "length": len(content)},
+            )
+        return create_response(
+            url=file_path, status=200, length=len(content), ok=True, content=content
+        )
+    except (IOError, OSError) as e:
+        logger.warning("File read error", extra={"path": file_path, "error": str(e)})
+        return create_response(url=file_path, error=f"File read error: {e}")
+
+
+def fetch_web(url: str) -> FetchResponse:
+    """
+    Обрабатывает  запросы на веб ресурсам.
+
+    Параметры:
+        url: URL целевого ресурса
+
+    Возвращает:
+        Словарь-ответ (create_response).
     """
     try:
-        # Имитация запроса от пользователя
         resp = requests.get(
             url,
-            timeout=timeout,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:147.0) Gecko/20100101 Firefox/147.0"
-            },
+            timeout=REQUEST_TIMEOUT,
+            headers={"User-Agent": DEFAULT_USER_AGENT},
         )
         resp.raise_for_status()
-        # логирование успешного запроса
         logger.debug(
-            "fetched resource",
+            "Fetched web resource",
             extra={"url": url, "status": resp.status_code, "length": len(resp.text)},
         )
         return create_response(
@@ -90,41 +129,50 @@ def fetch_web(url: str, timeout: int) -> Dict[str, Any]:
             status=resp.status_code,
             length=len(resp.text),
             ok=True,
-            text=resp.text,
+            content=resp.text,
         )
-    except requests.RequestException as e:
-        return create_response(url=url, status=resp.status_code, error=str(e))
+    except requests.HTTPError() as e:
+        status = e.response.status_code if e.response is not None else None
+        logger.warning(
+            "Web request failed", extra={"url": url, "error": str(e), "status": status}
+        )
+        return create_response(url=url, status=status, error=str(e))
 
 
-def fetch_info(url: str, timeout: int = REQUEST_TIMEOUT) -> Dict[str, Any]:
+def fetch_info(url: str) -> FetchResponse:
     """
-    Отправляет, принимает и предоставляет в удобной форме
-    запрос на целевой ресурс
+    Отправляет запрос к целевому ресурсу и возвращает результат.
 
     Параметры:
-        url - url целевого ресурса
-        timeout - максимальное время ожидания ответа от ресурса (для web)
+        url: URL целевого ресурса
+
+    Возвращает:
+        Словарь-ответ (create_response).
     """
+    if not url or not url.strip():
+        logger.warning("Empty URL provided")
+        return create_response(url=url, error="Empty URL")
+
     try:
         parsed = urlparse(url)
-        scheme = (parsed.scheme or "").lower()
+        scheme = parsed.scheme.lower()
 
         if scheme in ("http", "https"):
-            return fetch_web(url, timeout)
+            return fetch_web(url)
 
         if scheme == "file":
             path = url_to_path(url)
             return fetch_local_file(path)
 
-        # try http
         if not scheme:
             tried_url = "http://" + url
             logger.debug(
                 "trying http fallback", extra={"original": url, "tried": tried_url}
             )
-            return fetch_web(tried_url, timeout)
+            return fetch_web(tried_url)
 
-        return create_response(url=url, error=f"Unsupported scheme: {scheme}")
     except Exception as e:
-        logger.exception("fetch error", extra={"url": url})
+        logger.exception(
+            "Unexpected error in fetch_info", extra={"url": url, "error": str(e)}
+        )
         return create_response(url=url, error=str(e))

@@ -35,7 +35,7 @@ def test_demo_integration(tmp_path, monkeypatch):
     p.write_text(html, encoding="utf-8")
 
     # парсим формы
-    forms = extract_forms(html, base_url="https://example.com")
+    forms = extract_forms(html, url="https://example.com")
     assert len(forms) >= 1
     form = forms[0].to_dict()
 

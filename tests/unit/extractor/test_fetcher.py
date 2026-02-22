@@ -1,58 +1,62 @@
+import pytest
 import requests
-from urllib.parse import quote
 from src.extractor.fetcher import fetch_info
 
 
-def make_file(tmp_path, name="x.txt", content="test"):
-    f = tmp_path / name
-    f.write_text(content, encoding="utf-8")
-    return f
+@pytest.fixture
+def file_url(tmp_path):
+    def _make(content, name):
+        p = tmp_path / name
+        p.write_text(content, encoding="utf-8")
+        return f"file:///{p.as_posix()}"
+
+    return _make
 
 
-def test_file_success(tmp_path):
-    p = make_file(tmp_path, "t.txt", "test")
-    url = f"file://{p.as_posix()}"
+@pytest.mark.parametrize(
+    "name, content, expected_len",
+    [
+        ("x.txt", "test", 4),
+        ("a file.txt", "ok", 2),
+    ],
+)
+def test_file_success(file_url, name, content, expected_len):
+    url = file_url(content, name)
     r = fetch_info(url)
     assert r["ok"] is True
     assert r["status"] == 200
-    assert r["length"] == 4
+    assert r["length"] == expected_len
 
 
 def test_file_not_found():
     r = fetch_info("file:///no/such/file.txt")
-    assert r["ok"] is False
-    assert "File not found" in (r["error"] or "")
+    assert not r["ok"]
+    assert "File not found" in r["error"]
 
 
-def test_file_with_spaces(tmp_path):
-    p = make_file(tmp_path, "a file.txt", "ok")
-    encoded = quote(p.as_posix())
-    r = fetch_info(f"file:///{encoded}")
-    assert r["ok"] is True
-    assert r["length"] == 2
+@pytest.mark.parametrize(
+    "status, ok, length",
+    [
+        (200, True, 3),
+        (404, False, None),
+        (500, False, None),
+    ],
+)
+def test_http_requests(monkeypatch, status, ok, length):
 
-
-def test_http_success_and_http_error(monkeypatch):
-    class Resp:
-        def __init__(self, code, text):
-            self.status_code = code
-            self.text = text
+    class MockResponse:
+        def __init__(self):
+            self.status_code = status
+            self.text = "abc" if status == 200 else ""
 
         def raise_for_status(self):
             if self.status_code >= 400:
                 raise requests.HTTPError(f"{self.status_code}")
 
-    # success
     monkeypatch.setattr(
-        "src.extractor.fetcher.requests.get", lambda *a, **k: Resp(200, "abc")
+        "src.extractor.fetcher.requests.get", lambda *a, **k: MockResponse()
     )
-    r1 = fetch_info("http://example.com")
-    assert r1["ok"] is True and r1["status"] == 200 and r1["length"] == 3
-
-    # http error
-    monkeypatch.setattr(
-        "src.extractor.fetcher.requests.get", lambda *a, **k: Resp(404, "Not")
-    )
-    r2 = fetch_info("http://bad.example")
-    assert r2["ok"] is False
-    assert r2["status"] == 404
+    r = fetch_info("http://example.com")
+    assert r["ok"] is ok
+    if length is not None:
+        assert r["length"] == length
