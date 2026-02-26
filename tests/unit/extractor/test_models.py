@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from src.extractor.models import InputField, Form
+from src.extractor.extractor import page_has_js
 
 
 def test_field_factories():
@@ -27,9 +28,10 @@ def test_field_factories():
 
 def test_from_soup_form():
     html = '<form id="f" class="c1 c2" action="/go" method="POST" enctype="multipart/form-data"><input name="x"></form>'
-    form_tag = BeautifulSoup(html, "html.parser").find("form")
-
-    frm = Form.from_soup_form(form_tag, "https://ex.com")
+    soup = BeautifulSoup(html, "html.parser")
+    form_tag = soup.find("form")
+    js_hint = page_has_js(soup)
+    frm = Form.from_soup_form(form_tag, "https://ex.com", js_hint)
     d = frm.to_dict()
 
     assert frm.form_id == "f"

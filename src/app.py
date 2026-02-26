@@ -60,6 +60,8 @@ def parse_forms_from_url(url: str) -> Dict[str, Any]:
         raise ConnectionError(f"Could not fetch HTML from {url}")
 
     forms = extract_forms(html, url)
+    if forms is None:
+        raise Exception("Couldn't get forms")
     return {
         "forms": [form.to_dict() for form in forms],
         "html_length": len(html),
@@ -108,6 +110,9 @@ def api_scan():
     except ConnectionError as e:
         logger.error("Failed to fetch HTML", extra={"url": url, "error": str(e)})
         return jsonify({"error": "Could not retrieve the resource"}), 502
+    except Exception as e:
+        logger.error("Coldn't get forms", extra={"url": url, "error": str(e)})
+        return jsonify({"error": "Problem during extracting forms"}), 502
 
     try:
         findings = scan_forms(forms_res["forms"], PAYLOADS, rate_limit=RATE_LIMIT)

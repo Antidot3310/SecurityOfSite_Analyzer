@@ -11,9 +11,9 @@
 
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from urllib.parse import urljoin
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Dict
 from bs4.element import Tag
 from src.logger import get_logger
 
@@ -70,6 +70,14 @@ class InputField:
         )
 
 
+def detect_js_driven_form(form: Tag, page_js_hint: bool) -> bool:
+    if not form.get("action", ""):
+        return True
+    if page_js_hint and parse_form_inputs(form) == []:
+        return True
+    return False
+
+
 @dataclass
 class Form:
     """
@@ -88,13 +96,14 @@ class Form:
     inputs: List[InputField]
     enctype: Optional[str]
     form_id: Optional[str]
+    meta: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Возвращает словарное представление формы."""
         return asdict(self)
 
     @classmethod
-    def from_soup_form(cls, form_tag: Tag, url: str) -> "Form":
+    def from_soup_form(cls, form_tag: Tag, url: str, page_js_hint: bool) -> "Form":
         """
         Создаёт объект Form из тега BeautifulSoup.
 
@@ -118,6 +127,7 @@ class Form:
             inputs=parse_form_inputs(form_tag),
             enctype=form_tag.get("enctype"),
             form_id=form_tag.get("id"),
+            meta={"likely_js": detect_js_driven_form(form_tag, page_js_hint)},
         )
 
 

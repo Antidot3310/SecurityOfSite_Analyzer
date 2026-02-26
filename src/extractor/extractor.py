@@ -12,6 +12,7 @@ from typing import List, Optional
 from bs4 import BeautifulSoup
 from src.extractor.models import Form
 from src.extractor.fetcher import fetch_info
+from src.extractor.render import render_html_with_playwright
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -27,6 +28,10 @@ def fetch_html(url: str) -> Optional[str]:
     Возвращает:
         HTML-код в виде строки или None, если запрос не удался.
     """
+    rendered = render_html_with_playwright(url)
+    if rendered:
+        return rendered
+    
     info = fetch_info(url)
     if info.get("ok"):
         return info.get("content")
@@ -50,8 +55,10 @@ def extract_forms(html: str, url: str) -> Optional[List[Form]]:
         return None
     try:
         soup = BeautifulSoup(html, "html.parser")
+        page_js_hint = page_has_js(soup)
         forms = [
-            Form.from_soup_form(form_tag=f, url=url) for f in soup.find_all("form")
+            Form.from_soup_form(form_tag=f, url=url, page_js_hint=page_js_hint)
+            for f in soup.find_all("form")
         ]
         return forms
     except Exception as e:
@@ -75,3 +82,7 @@ def get_forms(url: str) -> Optional[List[Form]]:
         logger.warning("Cannot fetch HTML", extra={"url": url})
         return None
     return extract_forms(html, url)
+
+
+def page_has_js(soup) -> bool:
+    return bool(soup.find_all("script"))
