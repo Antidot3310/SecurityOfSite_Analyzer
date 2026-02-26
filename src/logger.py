@@ -1,13 +1,15 @@
 """
-Модуль для настройки и получения логгеров.
+Минималистичный логгер:
+Выводит: время, уровень, модуль, сообщение и дополнительные поля (extra).
+Сделан упор на читаемость (выравнивание) и простоту использования.
 """
 
 import json
 import logging
-import os
+from typing import Dict, Any
 from src.config import LOG_LEVEL
 
-
+# Небольшой набор стандартных атрибутов LogRecord, которые не считаем extra.
 _STANDARD_ATTRS = {
     "name",
     "msg",
@@ -18,75 +20,85 @@ _STANDARD_ATTRS = {
     "filename",
     "module",
     "exc_info",
-    "exc_text",
     "stack_info",
     "lineno",
     "funcName",
     "created",
     "msecs",
     "relativeCreated",
-    "thread",
     "threadName",
     "processName",
     "process",
     "message",
+    "exc_text",
+    "thread",
+    "taskName",
 }
+_MAX_EXTRA_VAL = 200
 
 
-class ExtraFormatter(logging.Formatter):
+class SimpleFormatter(logging.Formatter):
+    """
+    Форматирует запись в виде:
+    2026-02-18 19:14:51 INFO  [module.name] message ... | key = value | other = value2
+
+    - module name выравнивается по ширине.
+    - extra поля сериализуются в JSON-подобный вид.
+    """
+
+    def __init__(self):
+        fmt = (
+            "%(asctime)s %(levelname)-5s [%(name)-"
+            + "s] %(message)s%(context_suffix)s"
+        )
+        datefmt = "%H:%M:%S"
+        super().__init__(fmt=fmt, datefmt=datefmt)
+
     def format(self, record: logging.LogRecord) -> str:
-        # собрать дополнительные поля (которые добавлены через extra)
-        extras = {}
-        for k, v in record.__dict__.items():
-            if k not in _STANDARD_ATTRS:
-                # не включаем внутренние объекты логгера
-                if k in ("args", "msg"):
-                    continue
-                extras[k] = v
+        extras: Dict[str, Any] = {
+            k: v for k, v in record.__dict__.items() if k not in _STANDARD_ATTRS
+        }
 
-        # создаём компактный repr: первые 200 символов для больших значений
-        compact = {}
-        for k, v in extras.items():
-            try:
-                s = json.dumps(v, default=str)
-            except Exception:
-                s = str(v)
-            compact[k] = s if len(s) <= 200 else s[:200] + "...(truncated)"
+        if extras:
+            maxk = max(len(k) for k in extras.keys())
+            parts = []
+            for k, v in extras.items():
+                try:
+                    s = json.dumps(v, ensure_ascii=False)
+                except Exception:
+                    s = str(v)
+                if len(s) > _MAX_EXTRA_VAL:
+                    s = s[:_MAX_EXTRA_VAL] + "...(truncated)"
+                parts.append(f"{k.ljust(maxk)} = {s}")
+            record.context_suffix = " | " + " | ".join(parts)
+        else:
+            record.context_suffix = ""
 
-        # добавляем поле `context` в record, чтобы форматтер мог его использовать
-        record.context = json.dumps(compact, ensure_ascii=False) if compact else ""
         return super().format(record)
 
 
 def configure_basic_logging():
+    """
+    Инициализация логгера — idempotent: можно вызывать несколько раз без дублирования хендлеров.
+    """
     root = logging.getLogger()
 
-    level = getattr(logging, LOG_LEVEL, logging.DEBUG)
-    root.setLevel(level)
+    root.setLevel(LOG_LEVEL)
 
-    fmt = "%(asctime)s %(levelname)s [%(name)s] %(message)s %(context)s"
-
-    # Если есть существующие хендлеры — обновим их форматтер и уровень.
     if root.handlers:
-        for h in root.handlers:
-            try:
-                h.setLevel(level)
-                h.setFormatter(ExtraFormatter(fmt))
-            except Exception:
-                # не фейлим если какой-то хендлер особенный
-                try:
-                    h.setFormatter(logging.Formatter(fmt))
-                except Exception:
-                    pass
-        return
+        root.handlers = []
 
-    # Нет хендлеров — создаём свой.
+    fmt = SimpleFormatter()
+
     ch = logging.StreamHandler()
-    ch.setLevel(level)
-    ch.setFormatter(ExtraFormatter(fmt))
+    ch.setLevel(LOG_LEVEL)
+    ch.setFormatter(fmt)
     root.addHandler(ch)
 
 
-def get_logger(name: str):
+def get_logger(name: str) -> logging.Logger:
+    """
+    Получить логгер по имени; гарантированно настроит базовую конфигурацию при первом вызове.
+    """
     configure_basic_logging()
     return logging.getLogger(name)

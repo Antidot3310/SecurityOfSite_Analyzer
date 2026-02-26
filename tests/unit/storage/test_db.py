@@ -1,5 +1,5 @@
 import json
-from src.storage.db import init_db, save_scan, get_scan, db_connect
+from src.storage.db import init_db, save_scan, get_scan
 
 
 def test_save_and_get_scan(tmp_path):

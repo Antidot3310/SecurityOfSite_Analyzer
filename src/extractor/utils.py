@@ -15,7 +15,6 @@
 """
 
 import os
-import posixpath
 from urllib.parse import urlparse, unquote
 from src.logger import get_logger
 
@@ -76,7 +75,7 @@ def _format_absolute_path(path: str) -> str:
     Форматирует абсолютный путь, нормализует.
     """
     if os.name == "nt" and _is_windows_drive_path(path):
-        path = path[1:]  
+        path = path[1:]
     return path
 
 

@@ -17,7 +17,7 @@ import requests
 from typing import Optional, Any, Dict
 from urllib.parse import urlparse
 from src.extractor.utils import url_to_path
-from src.config import REQUEST_TIMEOUT, DEFAULT_USER_AGENT
+from src.config import REQUEST_TIMEOUT, DEFAULT_HEADER
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -25,10 +25,10 @@ logger = get_logger(__name__)
 
 class FetchResponse(dict):
     """
-    Типизированный словарь ответа.
+    Словарь ответа.
 
     url: исходный URL
-    status: HTTP-статус (для файлов может быть 200 при успехе или отсутствовать)
+    status: HTTP-статус
     length: длина содержимого в символах
     ok: флаг успешности операции
     error: описание ошибки (если есть)
@@ -117,13 +117,10 @@ def fetch_web(url: str) -> FetchResponse:
         resp = requests.get(
             url,
             timeout=REQUEST_TIMEOUT,
-            headers={"User-Agent": DEFAULT_USER_AGENT},
+            headers=DEFAULT_HEADER,
         )
         resp.raise_for_status()
-        logger.debug(
-            "Fetched web resource",
-            extra={"url": url, "status": resp.status_code, "length": len(resp.text)},
-        )
+
         return create_response(
             url=url,
             status=resp.status_code,
@@ -132,11 +129,10 @@ def fetch_web(url: str) -> FetchResponse:
             content=resp.text,
         )
     except requests.HTTPError() as e:
-        status = e.response.status_code if e.response is not None else None
         logger.warning(
-            "Web request failed", extra={"url": url, "error": str(e), "status": status}
+            "Web request failed", extra={"url": url, "error": str(e)}
         )
-        return create_response(url=url, status=status, error=str(e))
+        return create_response(url=url, status=None, error=str(e))
 
 
 def fetch_info(url: str) -> FetchResponse:
@@ -166,7 +162,7 @@ def fetch_info(url: str) -> FetchResponse:
 
         if not scheme:
             tried_url = "http://" + url
-            logger.debug(
+            logger.warning(
                 "trying http fallback", extra={"original": url, "tried": tried_url}
             )
             return fetch_web(tried_url)

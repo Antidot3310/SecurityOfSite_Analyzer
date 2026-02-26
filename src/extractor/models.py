@@ -32,7 +32,7 @@ class InputField:
         field_type: тип поля (input type, 'textarea')
         value: значение поля
         required: флаг обязательности
-        placeholder: подсказка для input/textarea
+        placeholder: подсказка
         meta: дополнительные данные
     """
 

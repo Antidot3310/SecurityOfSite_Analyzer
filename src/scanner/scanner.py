@@ -1,11 +1,10 @@
 """
-Модуль реализует логику сканирования целевого ресурса
-на уязвимости (для каждого отдельного поля запускает детекторы)
+Модуль реализует логику сканирования веб-форм на уязвимости.
 
 Функции:
-    scan_field()
-    scan_form()
-    scan_forms()
+    scan_field  - сканирование одного поля формы с перебором payloads
+    scan_form   - сканирование всех полей одной формы
+    scan_forms  - сканирование списка форм с использованием общей сессии
 """
 
 import requests
@@ -32,7 +31,7 @@ ALLOWED_INPUT_TYPES = {"text", "search", "textarea", "url", "email", "tel"}
 
 def scan_field(
     form: dict,
-    inp: dict,
+    field: dict,
     base_line_snapshot: ResponseSnapshot,
     payloads: List[Payload],
     base_data: dict,
@@ -40,63 +39,79 @@ def scan_field(
     session: Optional[requests.Session] = None,
 ) -> List[Finding]:
     """
-    Сканирует каждое отдельное поле
+    Сканирует одно поле формы, перебирая список полезных нагрузок.
+
+    Параметры:
+        form: словарь, представляющий форму
+        field: словарь поля
+        base_line_snapshot: базоввый ответ
+        payloads: список объектов Payload
+        base_data: словарь базовых данных для отправки
+        rate_limit: задержка между запросами в секундах
+        session: опциональная сессия requests для переиспользования соединений
+
+    Возвращает:
+        Список обнаруженных уязвимостей (объекты Finding).
     """
     findings: List[Finding] = []
 
-    name = inp.get("name")
-    # Отсеиваем неподдерживаемые типы
-    if not name or (inp.get("type") or "text").lower() not in ALLOWED_INPUT_TYPES:
-        logger.warning(
-            "skipping field",
+    field_name = field.get("name")
+    field_type = (field.get("type") or "text").lower()
+
+    if not field_name or field_type not in ALLOWED_INPUT_TYPES:
+        logger.debug(
+            "Skipping field",
             extra={
                 "form_id": form.get("form_id"),
-                "field": name,
-                "type": inp.get("type") or "text",
+                "field_name": field_name,
+                "field_type": field_type,
             },
         )
         return findings
 
     for payload in payloads:
         try:
-            # Логирование отправки полезной нагрузки
             logger.debug(
-                "sending payload",
+                "Sending payload",
                 extra={
                     "form_id": form.get("form_id"),
-                    "field": inp.get("name"),
+                    "field": field_name,
                     "payload_id": payload.payload_id,
                     "payload": payload.payload,
                 },
             )
-            # Составление, отправка запроса с payload, засекание времени
-            test_data = build_test_data(base_data, inp, payload)
+
+            test_data = build_test_data(base_data, field, payload)
             test_snapshot = send_form_request(form, test_data, session=session)
-            # Логирование полученного ответа
-            if test_snapshot:
-                logger.debug(
-                    "test snapshot created",
+
+            if not test_snapshot:
+                logger.warning(
+                    "No response for payload, skipping",
                     extra={
                         "form_id": form.get("form_id"),
-                        "status": test_snapshot.status_code,
-                        "body_len": len(test_snapshot.body),
-                        "response_time": test_snapshot.response_time,
+                        "field": field_name,
+                        "payload_id": payload.payload_id,
                     },
                 )
-
-            if rate_limit:
-                sleep(rate_limit)
-            if not test_snapshot:
                 continue
 
-            # Проводим детектирование
+            logger.debug(
+                "Test snapshot received",
+                extra={
+                    "form_id": form.get("form_id"),
+                    "status": test_snapshot.status_code,
+                    "body_len": len(test_snapshot.body),
+                    "response_time": test_snapshot.response_time,
+                },
+            )
+
             dets = detector.run_detectors(base_line_snapshot, test_snapshot, payload)
             for d in dets:
                 if d.get("matched"):
                     findings.append(
                         Finding(
                             form_index=form.get("form_id"),
-                            field_name=name,
+                            field_name=field_name,
                             evidence=d.get("evidence") or "",
                             payload=payload,
                             response_time_ms=test_snapshot.response_time * 1000,
@@ -104,13 +119,17 @@ def scan_field(
                             url=test_snapshot.url,
                         )
                     )
+
+            if rate_limit > 0:
+                sleep(rate_limit)
+
         except Exception as e:
             logger.exception(
-                "scan_field error",
+                "Error while scanning field with payload",
                 extra={
                     "form_id": form.get("form_id"),
-                    "field": name,
-                    "payload": payload.payload,
+                    "field": field_name,
+                    "payload_id": payload.payload_id,
                     "error": str(e),
                 },
             )
@@ -126,44 +145,69 @@ def scan_form(
     rate_limit: float = RATE_LIMIT,
 ) -> List[Finding]:
     """
-    Сканирует отдельную форму
-    На данном этапе отправляется базовый запрос
+    Сканирует все поля одной формы.
+
+
+    Параметры:
+        form: словарь, представляющий форму
+        payloads: список объектов Payload
+        session: опциональная сессия requests
+        rate_limit: задержка между запросами
+
+    Возвращает:
+        Список уязвимостей, найденных во всех полях формы.
     """
-    inputs = form.get("inputs", []) or []
-    # Создание базовой линии
-    base_data = build_base_line(inputs)
-    base_snapshot = send_form_request(form, base_data, session=session)
-    # Логирование результата создания базовой линии
-    if base_snapshot:
-        body_len = len(base_snapshot.body)
+    inputs = form.get("inputs", [])
+    if not inputs:
         logger.debug(
-            "baseline created",
-            extra={
-                "form_id": form.get("form_id"),
-                "status": base_snapshot.status_code,
-                "body_len": body_len,
-                "response_time": base_snapshot.response_time,
-            },
-        )
-    if not base_snapshot:
-        logger.warning(
-            "Couldn't create baseline for form", extra={"form_id": form.get("form_id")}
+            "Form has no inputs, skipping", extra={"form_id": form.get("form_id")}
         )
         return []
 
+    base_data = build_base_line(inputs)
+    base_snapshot = send_form_request(form, base_data, session=session)
+
+    if not base_snapshot:
+        logger.warning(
+            "Failed to obtain baseline response for form",
+            extra={"form_id": form.get("form_id")},
+        )
+        return []
+
+    logger.debug(
+        "Baseline created",
+        extra={
+            "form_id": form.get("form_id"),
+            "status": base_snapshot.status_code,
+            "body_len": len(base_snapshot.body),
+            "response_time": base_snapshot.response_time,
+        },
+    )
+
     findings: List[Finding] = []
-    for inp in inputs:
-        findings.extend(
-            scan_field(
+    for field in inputs:
+        try:
+            field_findings = scan_field(
                 form,
-                inp,
+                field,
                 base_snapshot,
                 payloads,
                 base_data,
                 rate_limit,
                 session,
             )
-        )
+            findings.extend(field_findings)
+        except Exception as e:
+            logger.exception(
+                "Error scanning field in form",
+                extra={
+                    "form_id": form.get("form_id"),
+                    "field_name": field.get("name"),
+                    "error": str(e),
+                },
+            )
+            continue
+
     return findings
 
 
@@ -171,26 +215,42 @@ def scan_forms(
     forms: List[dict], payloads: List[Payload], rate_limit: float = 1
 ) -> List[Finding]:
     """
-    Сканирование списка форм
+    Сканирует список форм, используя общую сессию requests.
+
+    Параметры:
+        forms: список словарей, представляющих формы
+        payloads: список объектов Payload
+        rate_limit: задержка между запросами (по умолчанию из конфига)
+
+    Возвращает:
+        Объединённый список уязвимостей, найденных во всех формах.
     """
-    logger.info("Started scanning forms", extra={"forms_count": len(forms)})
-    findings: List[Finding] = []
+    logger.info("Starting scan of %d forms", len(forms))
+    all_findings: List[Finding] = []
+
     with requests.Session() as session:
-        for form in forms:
+        for idx, form in enumerate(forms):
+            form_id = form.get("form_id", f"index_{idx}")
             try:
-                findings.extend(scan_form(form, payloads, session, rate_limit))
+                form_findings = scan_form(form, payloads, session, rate_limit)
+                all_findings.extend(form_findings)
                 logger.info(
-                    "Form scan finished",
+                    "Finished scanning form",
                     extra={
-                        "form_id": form.get("form_id"),
-                        "findings_count": len(findings),
+                        "form_id": form_id,
+                        "findings_in_form": len(form_findings),
+                        "total_findings_so_far": len(all_findings),
                     },
                 )
             except Exception as e:
                 logger.exception(
-                    "Error scanning form",
-                    extra={"form_id": form.get("form_id"), "error": str(e)},
+                    "Unexpected error while scanning form",
+                    extra={"form_id": form_id, "error": str(e)},
                 )
                 continue
-    logger.info("Finished scanning forms", extra={"forms_count": len(forms)})
-    return findings
+
+    logger.info(
+        "Scan completed",
+        extra={"forms_processed": len(forms), "total_findings": len(all_findings)},
+    )
+    return all_findings

@@ -53,7 +53,6 @@ def extract_forms(html: str, url: str) -> Optional[List[Form]]:
         forms = [
             Form.from_soup_form(form_tag=f, url=url) for f in soup.find_all("form")
         ]
-        logger.debug("parsed forms", extra={"url": url, "forms_count": len(forms)})
         return forms
     except Exception as e:
         logger.exception("Error extracting forms", extra={"url": url, "error": str(e)})

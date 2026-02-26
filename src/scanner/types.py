@@ -1,16 +1,14 @@
 """
-Модуль предоставляет класс  абстракицю Payload
-и вспомогательные классы и функции для удобной работы с ним
+Модуль предоставляет класс Payload (абстракция полезной нагрузки)
 
 Классы:
-    Payload - класс с payload и дополнительной полезной информацией
-    enum:
-        Severity - опасность пэйлойда
-        VulnType - тип уязвимости
-        MatchType - тип поля
+    Payload   – полезная нагрузка с метаинформацией.
+    Severity  – уровень опасности.
+    VulnType  – тип уязвимости.
+    MatchType – способ срабатывания.
 
 Функции:
-    load_payloads() - десереализация объектов Payload из json
+    load_payloads() – десериализация списка Payload из JSON-файла.
 """
 
 import json
@@ -23,6 +21,8 @@ logger = get_logger(__name__)
 
 
 class Severity(Enum):
+    """Уровень опасности уязвимости."""
+
     INFO = "INFO"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -31,11 +31,15 @@ class Severity(Enum):
 
 
 class VulnType(Enum):
+    """Тип уязвимости."""
+
     SQLI = "SQLI"
     XSS = "XSS"
 
 
 class MatchType(Enum):
+    """Способ срабатывания детектора."""
+
     BOOLEAN = "BOOLEAN"
     UNION = "UNION"
     TIME_BASED = "TIME_BASED"
@@ -49,15 +53,15 @@ class MatchType(Enum):
 @dataclass
 class Payload:
     """
-    Класс представляет собой удобную обертку пэйлойда
+    Полезная нагрузка с метаданными.
 
-    Поля:
-        payload_id - id
-        payload - строка пэйлойд
-        vuln_type - тип угрозы
-        severity - опасность
-        match_type - тип атаки
-        evidence_patterns - кратко, возможные причины
+    Атрибуты:
+        payload_id: уникальный идентификатор.
+        payload: строка, внедряемая в поле формы.
+        vuln_type: тип уязвимости (из VulnType).
+        severity: уровень опасности (из Severity).
+        match_type: способ срабатывания (из MatchType).
+        evidence_patterns: список паттернов, подтверждающих уязвимость.
     """
 
     payload_id: str
@@ -67,37 +71,51 @@ class Payload:
     match_type: MatchType
     evidence_patterns: List[str]
 
-    def to_dict(self) -> Dict[str, Any]:
-        d = asdict(self)
-        d["vuln_type"] = self.vuln_type.name
-        d["severity"] = self.severity.name
-        d["match_type"] = self.match_type.name
-        return d
+    def to_dict(self) -> dict:
+        return {
+            "payload_id": self.payload_id,
+            "payload": self.payload,
+            "vuln_type": self.vuln_type.name,
+            "severity": self.severity.name,
+            "match_type": self.match_type.name,
+            "evidence_patterns": self.evidence_patterns,
+        }
 
 
 def load_payloads(path: str) -> List[Payload]:
+    """
+    Загружает список полезных нагрузок из JSON-файла.
+
+    Параметры:
+        path: путь к JSON-файлу.
+
+    Формат файла: список объектов Payload.
+    """
     with open(path, "r", encoding="utf-8") as f:
         raw = json.load(f)
 
-    # Т.к. в файле храниться множесто payload создаем их список
+    if not isinstance(raw, list):
+        logger.error(f"Expected list of payloads in {path}, got {type(raw).__name__}")
+        return []
+
     out: List[Payload] = []
-    for p in raw:
+    for item in raw:
         try:
-            out.append(
-                Payload(
-                    payload_id=p["payload_id"],
-                    payload=p["payload"],
-                    vuln_type=VulnType(p.get("vuln_type")),
-                    severity=Severity(p.get("severity")),
-                    match_type=MatchType(p.get("match_type")),
-                    evidence_patterns=p.get("evidence_patterns", []),
-                )
+            payload = Payload(
+                payload_id=item["payload_id"],
+                payload=item["payload"],
+                vuln_type=VulnType(item["vuln_type"]),
+                severity=Severity(item["severity"]),
+                match_type=MatchType(item["match_type"]),
+                evidence_patterns=item.get("evidence_patterns", []),
             )
-        except Exception as e:
+            out.append(payload)
+        except (ValueError, KeyError, TypeError) as e:
             logger.error(
-                f"Problem during loading payload {p.get('payload_id')}: {str(e)}"
+                "Failed to parse payload",
+                extra={"payload_id": item.get("payload_id"), "error": str(e)},
             )
-            # не обрываем workflow
             continue
-    logger.info("Loaded payloads", extra={"path": path, "count": len(out)})
+
+    logger.info("Payloads loaded", extra={"path": path, "count": len(out)})
     return out

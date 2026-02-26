@@ -1,94 +1,117 @@
 """
-Модуль предоставляет детекторы различных видов уязвимостей,
-их работа основана на сравнении базового запроса с инжектированным
+Модуль предоставляет детекторы различных видов уязвимостей.
+Каждый детектор сравнивает базовый ответcс инжектированным
 
-Фукнции:
-    run_detectors() - запускает все детекторы ниже
-    detect_time_delay() - определяет большую разницу задержек запросов
-    detect_sql_error() - находит ошибки sql  в ответе
-    detect_patterns() - определяет следы xss
+Функции:
+    run_detectors() - запускает все детекторы и возвращает список сработавших.
+    detect_time_delay() - обнаруживает аномальную задержку ответа.
+    detect_sql_error() - ищет признаки SQL-ошибок в теле ответа.
+    detect_patterns() - ищет отражение полезной нагрузки (XSS).
 """
 
-import json, html, urllib.parse, re
+import json
+import html
+import urllib.parse
+import re
 from typing import List, Dict
-from pathlib import Path
+
 from .types import Payload
+from .models import ResponseSnapshot
+from src.config import SQL_ERRORS_PATH, TIME_DELAY_THRESHOLD_MS
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
-SQL_ERRORS_PATH = Path(__file__).parent.parent.parent / "data" / "sql_errors.json"
+SQL_ERROR_LIST: List[str] = []
 try:
-    SQL_ERROR_LIST = [
-        s.lower() for s in json.loads(SQL_ERRORS_PATH.read_text(encoding="utf-8"))
-    ]
-except Exception:
-    SQL_ERROR_LIST = []
+    with open(SQL_ERRORS_PATH, "r", encoding="utf-8") as f:
+        SQL_ERROR_LIST = [s.lower() for s in json.load(f)]
+    logger.debug(f"Loaded {len(SQL_ERROR_LIST)} SQL error signatures")
+except Exception as e:
+    logger.exception(f"Failed to load SQL errors from {SQL_ERRORS_PATH}")
 
 
-def detect_patterns(base, injected, payload: Payload) -> Dict:
+def detect_patterns(
+    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
+) -> Dict:
     """
-    определяет наличие следов payload в отввете сервера
+    Определяет наличие отражённой полезной нагрузки в ответе сервера.
+
+    Возвращает словарь с ключами:
+        'matched': bool,
+        'evidence': фрагмент ответа, содержащий найденный паттерн.
     """
-    base_text = (base.body or "").lower()
-    inj_text = (injected.body or "").lower()
+    base_body = (base.body or "").lower()
+    inj_body = (injected.body or "").lower()
+    base_lower = base_body.lower()
+    inj_lower = inj_body.lower()
 
-    patterns = []
-    patterns.extend(payload.evidence_patterns or [])
+    patterns = set()
+    if payload.evidence_patterns:
+        patterns.update(p.lower() for p in payload.evidence_patterns)
 
-    # Добавляем варианты payload
-    # (оригинальную версию, html-экранированную, url кодированную и без пробелов)
-    raw = (payload.payload or "").lower()
-    if raw:
-        patterns.extend(
-            {
-                raw,
-                html.escape(raw),
-                urllib.parse.quote(raw),
-                re.sub(r"\s+", "", raw),
-            }
+    raw_payload = (payload.payload or "").lower()
+    if raw_payload:
+        patterns.update(
+            [
+                raw_payload,
+                html.escape(raw_payload),
+                urllib.parse.quote(raw_payload),
+                re.sub(r"\s+", "", raw_payload),
+            ]
         )
-    # Логируем кандидатов
+
+    patterns.discard("")
+
     logger.debug(
-        "reflection candidate",
-        extra={"payload": raw, "patterns": patterns},
+        "Reflection search",
+        extra={
+            "payload_id": payload.payload_id,
+            "patterns_count": len(patterns),
+        },
     )
-    # находим паттерн и возвращаем контекст
-    for p in patterns:
-        p = p.lower()
-        if p and p in inj_text and p not in base_text:
-            pos = inj_text.find(p)
-            start = max(0, pos - 30)
-            end = pos + len(p) + 30
-            return {
-                "matched": True,
-                "evidence": (injected.body or "")[start:end],
-            }
+
+    for pattern in patterns:
+        if pattern in inj_lower and pattern not in base_lower:
+            pos = inj_lower.find(pattern)
+            if pos != -1:
+                start = max(0, pos - 30)
+                end = min(len(inj_body), pos + len(pattern) + 30)
+                evidence = inj_body[start:end]
+                return {"matched": True, "evidence": evidence}
 
     return {"matched": False, "evidence": ""}
 
 
-def detect_sql_error(base, injected, payload: Payload) -> Dict:
+def detect_sql_error(
+    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
+) -> Dict:
     """
-    Определяет наличие ошибок sql в тестовом запросе
-    при их отсутствии в базовом запросе"""
-    b = (base.body or "").lower()
-    i = (injected.body or "").lower()
+    Ищет признаки SQL-ошибок в теле инжектированного ответа,
+    отсутствующие в базовом.
+    """
+    base_body = (base.body or "").lower()
+    inj_body = (injected.body or "").lower()
+
     for err in SQL_ERROR_LIST:
-        if err and err in i and err not in b:
+        if err and err in inj_body and err not in base_body:
             return {"matched": True, "evidence": err}
+
     return {"matched": False, "evidence": ""}
 
 
-def detect_time_delay(base, injected, payload: Payload) -> Dict:
+def detect_time_delay(
+    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
+) -> Dict:
     """
-    Отмечает наличие пороговой задержки
+    Сравнивает время ответа базового и инжектированного запросов.
+    Если разница превышает threshold_ms, считает уязвимостью.
     """
-    threshold_ms = 2000
-    if (injected.response_time - base.response_time) > threshold_ms:
+    delay_ms = injected.response_time - base.response_time
+    if delay_ms > TIME_DELAY_THRESHOLD_MS:
         return {
             "matched": True,
-            "evidence": f"time delay: {injected.response_time - base.response_time:.0f} ms",
+            "evidence": f"Time delay: {delay_ms:.0f} ms",
         }
     return {"matched": False, "evidence": ""}
 
@@ -96,25 +119,34 @@ def detect_time_delay(base, injected, payload: Payload) -> Dict:
 DETECTORS = (detect_sql_error, detect_patterns, detect_time_delay)
 
 
-def run_detectors(base, injected, payload: Payload) -> List[Dict]:
+def run_detectors(
+    base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
+) -> List[Dict]:
     """
-    Запускает все детекторы на тестовый и базовый запрос
+    Запускает все зарегистрированные детекторы для пары ответов.
+    Возвращает список словарей от детекторов, которые вернули matched=True.
     """
-    result = []
-    for detect in DETECTORS:
+    results = []
+    for detector_func in DETECTORS:
         try:
-            res = detect(base, injected, payload)
+            res = detector_func(base, injected, payload)
             if res and res.get("matched"):
-                result.append(res)
+                results.append(res)
                 logger.info(
-                    "detector matched",
+                    "Detector matched",
                     extra={
-                        "detector": detect.__name__,
+                        "detector": detector_func.__name__,
                         "payload_id": payload.payload_id,
-                        "evidence_preview": res.get("evidence", "")[:100],
+                        "evidence_preview": (res.get("evidence") or "")[:100],
                     },
                 )
         except Exception as e:
-            logger.exception("Problem during detecting", extra={"error": str(e)})
-            continue
-    return result
+            logger.exception(
+                "Error in detector",
+                extra={
+                    "detector": detector_func.__name__,
+                    "payload_id": payload.payload_id,
+                    "error": str(e),
+                },
+            )
+    return results
