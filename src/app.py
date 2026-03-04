@@ -4,7 +4,6 @@
 Эндпоинты:
     /api/parse – парсинг форм с целевого URL.
     /api/scan  – сканирование целевого URL на уязвимости.
-    /dummy     – тестовый эндпоинт.
 """
 
 import sys
@@ -13,19 +12,24 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import json
-from typing import Any, Dict
+import requests
 from flask import Flask, request, jsonify
 
-from src.extractor.extractor import extract_forms, fetch_html
+from src.extractor.extractor import extract_forms
+from src.extractor.auth import try_login_dvwa
 from src.storage.db import init_db, save_scan
 from src.scanner.scanner import scan_forms
 from src.scanner.types import load_payloads, Payload
-from src.config import RATE_LIMIT, PAYLOADS_PATH
+from src.config import RATE_LIMIT, PAYLOADS_PATH, DEFAULT_HEADER
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
 app = Flask(__name__)
+
+ERROR_MISSING_URL = "Missing 'url' parameter"
+ERROR_SCANNER_NOT_INIT = "Scanner not initialized"
+ERROR_FETCH_FAILED = "fetch_failed"
 
 try:
     PAYLOADS: list[Payload] = load_payloads(PAYLOADS_PATH)
@@ -36,159 +40,110 @@ except Exception as e:
     PAYLOADS = []
 
 
-def save_scan_results(target: str, results_json: str, meta: dict) -> int:
+def save_scan_results(target: str, results_json: str) -> int:
     """Сохраняет результаты в БД и возвращает scan_id."""
-    scan_id = save_scan(target=target, results_json=results_json, meta=meta)
+    scan_id = save_scan(target=target, results_json=results_json)
     logger.info("Scan results saved", extra={"target": target, "scan_id": scan_id})
     return scan_id
 
 
-def parse_forms_from_url(url: str) -> Dict[str, Any]:
+def prepare_session() -> requests.Session:
+    """Создаёт и настраивает сессию."""
+    session = requests.Session()
+    session.headers.update(DEFAULT_HEADER)
+    return session
+
+
+def attempt_dvwa_login(session: requests.Session, url: str) -> None:
+    """Пытается выполнить автоматический вход в DVWA, логирует ошибки."""
+    try:
+        try_login_dvwa(session, url)
+    except Exception:
+        logger.exception("DVWA autologin failed", extra={"url": url})
+
+
+def fetch_page(session: requests.Session, url: str) -> requests.Response:
     """
-    Получает HTML по URL и извлекает формы.
-
-    Возвращает словарь с ключами:
-        forms (list) – список форм в виде словарей,
-        html_length (int) – длина HTML,
-        forms_count (int) – количество форм.
-
-    Исключения:
-        ConnectionError – если не удалось получить HTML.
+    Выполняет GET-запрос к целевому URL.
     """
-    html = fetch_html(url)
-    if html is None:
-        raise ConnectionError(f"Could not fetch HTML from {url}")
-
-    forms = extract_forms(html, url)
-    if forms is None:
-        raise Exception("Couldn't get forms")
-    return {
-        "forms": [form.to_dict() for form in forms],
-        "html_length": len(html),
-        "forms_count": len(forms),
-    }
+    try:
+        return session.get(url, allow_redirects=True)
+    except requests.RequestException as e:
+        logger.exception("Failed to fetch target", extra={"url": url, "error": str(e)})
+        raise
 
 
-@app.route("/dummy", methods=["GET", "POST"])
-def dummy():
-    # получаем все агументы body как словарь
-    vals = request.values.to_dict(flat=False)
-    s = ""
-    # конкатенируем все аргументы в строку, чтобы не проверять каждый по отдельности
-    for k, v in vals.items():
-        if isinstance(v, list):
-            s += " " + v[0]
-        else:
-            s += " " + str(v)
-    if "OR 1=1" in s or "UNION SELECT" in s:
-        # SQLI
-        return f"Database error: you have an error in your sql syntax", 200
-    if "SLEEP" in s.upper() or "SLEEP(" in s:
-        import time
+def extract_forms_from_response(response: requests.Response) -> list[dict]:
+    """Извлекает формы из HTML-ответа и возвращает их в виде списка словарей."""
+    forms = extract_forms(response.text, response.url)
+    return [f.to_dict() for f in forms]
 
-        time.sleep(2.5)
-        # time-based
-        return f"Delayed response (simulated)", 200
-    # XSS
-    return f"<html><body>{s}</body></html>", 200
+
+def perform_scan(forms: list[dict], session: requests.Session) -> list[dict]:
+    """Запускает сканирование форм с использованием загруженных полезных нагрузок."""
+    findings = scan_forms(forms, PAYLOADS, rate_limit=RATE_LIMIT, session=session)
+    return [f.to_dict() for f in findings]
 
 
 @app.route("/api/scan", methods=["GET"])
 def api_scan():
     url = request.args.get("url")
     logger.info("API scan request", extra={"url": url})
+
     if not url:
         logger.warning("Missing url parameter")
-        return jsonify({"error": "Missing 'url' parameter"}), 400
+        return jsonify({"error": ERROR_MISSING_URL}), 400
 
     if not PAYLOADS:
         logger.error("No payloads loaded")
-        return jsonify({"error": "Scanner not properly initialized"}), 500
+        return jsonify({"error": ERROR_SCANNER_NOT_INIT}), 500
+
+    session = prepare_session()
+    attempt_dvwa_login(session, url)
 
     try:
-        forms_res = parse_forms_from_url(url)
-    except ConnectionError as e:
-        logger.error("Failed to fetch HTML", extra={"url": url, "error": str(e)})
-        return jsonify({"error": "Could not retrieve the resource"}), 502
-    except Exception as e:
-        logger.error("Coldn't get forms", extra={"url": url, "error": str(e)})
-        return jsonify({"error": "Problem during extracting forms"}), 502
+        response = fetch_page(session, url)
+    except requests.RequestException as e:
+        return jsonify({"error": ERROR_FETCH_FAILED, "reason": str(e)}), 400
 
-    try:
-        findings = scan_forms(forms_res["forms"], PAYLOADS, rate_limit=RATE_LIMIT)
-    except Exception as e:
-        logger.exception("Scanning failed", extra={"url": url})
-        return jsonify({"error": "Scanning failed"}), 500
+    forms = extract_forms_from_response(response)
+    findings = perform_scan(forms, session)
 
-    scan_id = save_scan_results(
-        target=url,
-        results_json=json.dumps(
-            {"forms": forms_res["forms"], "findings": [f.to_dict() for f in findings]}
-        ),
-        meta={
-            "count": len(findings),
-            "status_code": 200,
-            "response_size": forms_res["html_length"],
-        },
-    )
+    result_data = {
+        "findings": findings,
+        "findings_count": len(findings),
+    }
+    save_scan_results(target=url, results_json=json.dumps(result_data))
 
-    logger.info(
-        "Scan finished",
-        extra={
-            "url": url,
-            "scan_id": scan_id,
-            "forms_count": len(forms_res["forms"]),
-            "findings_count": len(findings),
-        },
-    )
-
-    # возврат находок в удобном формате
-    return (
-        jsonify(
-            {
-                "scan_id": scan_id,
-                "findings_count": len(findings),
-                "findings": [f.to_dict() for f in findings],
-            }
-        ),
-        200,
-    )
+    return jsonify(result_data), 200
 
 
 @app.route("/api/parse", methods=["GET"])
 def api_parse():
     url = request.args.get("url")
     logger.info("API parse request", extra={"url": url})
+
     if not url:
-        logger.warning("missing url parameter")
-        return jsonify({"error": "missing url parameter"}), 400
+        logger.warning("Missing url parameter")
+        return jsonify({"error": ERROR_MISSING_URL}), 400
+
+    session = prepare_session()
+    attempt_dvwa_login(session, url)
 
     try:
-        res = parse_forms_from_url(url)
-    except ConnectionError as e:
-        logger.error("Failed to fetch HTML", extra={"url": url, "error": str(e)})
-        return jsonify({"error": "Could not retrieve the resource"}), 502
+        response = fetch_page(session, url)
+    except requests.RequestException as e:
+        return jsonify({"error": ERROR_FETCH_FAILED, "reason": str(e)}), 400
 
-    scan_id = save_scan_results(
-        target=url,
-        results_json=json.dumps(res),
-        meta={
-            "count": res["forms_count"],
-            "status_code": 200,
-            "response_size": res["html_length"],
-        },
-    )
+    forms = extract_forms_from_response(response)
 
-    return (
-        jsonify(
-            {
-                "scan_id": scan_id,
-                "forms_count": res["forms_count"],
-                "forms": res["forms"],
-            }
-        ),
-        200,
-    )
+    result_data = {
+        "forms": forms,
+        "forms_count": len(forms),
+    }
+    save_scan_results(target=url, results_json=json.dumps(forms))
+
+    return jsonify(result_data), 200
 
 
 if __name__ == "__main__":

@@ -15,11 +15,12 @@ from dataclasses import dataclass, asdict, field
 from urllib.parse import urljoin
 from typing import Optional, Any, List, Dict
 from bs4.element import Tag
+
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
-IGNORED_INPUT_TYPES = {"submit", "button", "reset", "image"}
+IGNORED_INPUT_TYPES = {"button", "reset", "image"}
 
 
 @dataclass
@@ -115,6 +116,8 @@ class Form:
             Объект Form.
         """
         action = form_tag.get("action", "")
+        if action.endswith("#"):
+            action = ""
         if not action:
             form_id = form_tag.get("id")
             logger.warning(

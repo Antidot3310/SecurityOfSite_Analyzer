@@ -67,7 +67,7 @@ class ResponseSnapshot:
     Атрибуты:
         url:           итоговый URL
         status_code:   HTTP-код ответа
-        body:          первые BODY_PREVIEW символов тела
+        body:          тело
         body_len:      полная длина тела
         response_time: время получения ответа в секундах
     """
@@ -83,10 +83,19 @@ class ResponseSnapshot:
 
 
 def build_base_line(inputs: List[dict]) -> dict:
-    """
-    Строит словарь базовых данных для отправки формы.
-    """
-    return {inp["name"]: inp.get("value", "") for inp in inputs if inp.get("name")}
+    data = {}
+
+    for inp in inputs:
+        name = inp.get("name")
+        if not name:
+            continue
+        value = inp.get("value") or name
+        data[name] = value
+
+    if "Submit" not in data:
+        data["Submit"] = "Submit"
+
+    return data
 
 
 def build_test_data(base_data: dict, input_field: dict, payload: Payload) -> dict:
@@ -124,12 +133,6 @@ def send_form_request(
         Объект ResponseSnapshot или None, если запрос не удался.
     """
     action = form.get("action")
-    if not action:
-        logger.warning(
-            "Form has no action attribute, skipping",
-            extra={"form_id": form.get("form_id")},
-        )
-        return None
 
     method = (form.get("method") or "GET").upper()
     headers = DEFAULT_HEADER
@@ -148,8 +151,7 @@ def send_form_request(
                 )
             elapsed = monotonic() - start
 
-            full_body = resp.text or ""
-            body_preview = full_body[:BODY_PREVIEW]
+            body = resp.text or ""
 
             logger.debug(
                 "Form request sent",
@@ -157,7 +159,7 @@ def send_form_request(
                     "url": action,
                     "method": method,
                     "status": resp.status_code,
-                    "body_len": len(full_body),
+                    "body_len": len(body),
                     "time_sec": elapsed,
                 },
             )
@@ -165,8 +167,8 @@ def send_form_request(
             return ResponseSnapshot(
                 url=resp.url,
                 status_code=resp.status_code,
-                body=body_preview,
-                body_len=len(full_body),
+                body=body,
+                body_len=len(body),
                 response_time=elapsed,
             )
         except requests.RequestException as e:

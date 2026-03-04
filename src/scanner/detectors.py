@@ -1,6 +1,6 @@
 """
 Модуль предоставляет детекторы различных видов уязвимостей.
-Каждый детектор сравнивает базовый ответcс инжектированным
+Каждый детектор сравнивает базовый ответ с инжектированным.
 
 Функции:
     run_detectors() - запускает все детекторы и возвращает список сработавших.
@@ -9,20 +9,20 @@
     detect_patterns() - ищет отражение полезной нагрузки (XSS).
 """
 
-import json
+import re
 import html
 import urllib.parse
-import re
-from typing import List, Dict
+import json
+from typing import List, Dict, Set
 
 from .types import Payload
 from .models import ResponseSnapshot
-from src.config import SQL_ERRORS_PATH, TIME_DELAY_THRESHOLD_MS
+from src.config import TIME_DELAY_THRESHOLD_MS, SQL_ERRORS_PATH
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
-SQL_ERROR_LIST: List[str] = []
+DEFAULT_CONTEXT_SIZE = 60
 try:
     with open(SQL_ERRORS_PATH, "r", encoding="utf-8") as f:
         SQL_ERROR_LIST = [s.lower() for s in json.load(f)]
@@ -31,54 +31,49 @@ except Exception as e:
     logger.exception(f"Failed to load SQL errors from {SQL_ERRORS_PATH}")
 
 
+def generate_payload_variants(payload: str) -> Set[str]:
+    """Возвращает набор вариантов payload для поиска отражения."""
+    variants = {payload}
+    try:
+        variants.add(html.escape(payload))
+        variants.add(urllib.parse.quote_plus(payload))
+    except Exception:
+        pass
+    variants.add(re.sub(r"\s+", "", payload))
+    variants.add(re.sub(r"\W+", "", payload))
+    variants.discard("")
+    return variants
+
+
+def extract_context(
+    text: str, substring: str, context_size: int = DEFAULT_CONTEXT_SIZE
+) -> str:
+    """Возвращает фрагмент текста вокруг найденного substring."""
+    if not text or not substring:
+        return ""
+    idx = text.find(substring)
+    if idx == -1:
+        return ""
+    start = max(0, idx - context_size)
+    end = min(idx + len(substring) + context_size, len(text))
+    return text[start:end]
+
+
 def detect_patterns(
     base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
 ) -> Dict:
-    """
-    Определяет наличие отражённой полезной нагрузки в ответе сервера.
+    """Ищет отражение полезной нагрузки в ответе."""
+    base_body = base.body or ""
+    inj_body = injected.body or ""
 
-    Возвращает словарь с ключами:
-        'matched': bool,
-        'evidence': фрагмент ответа, содержащий найденный паттерн.
-    """
-    base_body = (base.body or "").lower()
-    inj_body = (injected.body or "").lower()
-    base_lower = base_body.lower()
-    inj_lower = inj_body.lower()
+    variants = generate_payload_variants(payload.payload)
 
-    patterns = set()
-    if payload.evidence_patterns:
-        patterns.update(p.lower() for p in payload.evidence_patterns)
-
-    raw_payload = (payload.payload or "").lower()
-    if raw_payload:
-        patterns.update(
-            [
-                raw_payload,
-                html.escape(raw_payload),
-                urllib.parse.quote(raw_payload),
-                re.sub(r"\s+", "", raw_payload),
-            ]
-        )
-
-    patterns.discard("")
-
-    logger.debug(
-        "Reflection search",
-        extra={
-            "payload_id": payload.payload_id,
-            "patterns_count": len(patterns),
-        },
-    )
-
-    for pattern in patterns:
-        if pattern in inj_lower and pattern not in base_lower:
-            pos = inj_lower.find(pattern)
-            if pos != -1:
-                start = max(0, pos - 30)
-                end = min(len(inj_body), pos + len(pattern) + 30)
-                evidence = inj_body[start:end]
-                return {"matched": True, "evidence": evidence}
+    for variant in variants:
+        if variant and variant in inj_body and variant not in base_body:
+            return {
+                "matched": True,
+                "evidence": extract_context(inj_body, variant),
+            }
 
     return {"matched": False, "evidence": ""}
 
@@ -86,16 +81,19 @@ def detect_patterns(
 def detect_sql_error(
     base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
 ) -> Dict:
-    """
-    Ищет признаки SQL-ошибок в теле инжектированного ответа,
-    отсутствующие в базовом.
-    """
-    base_body = (base.body or "").lower()
-    inj_body = (injected.body or "").lower()
+    """Ищет признаки SQL-ошибок в injected-ответе, которых нет в base."""
+    base_body = base.body or ""
+    inj_body = injected.body or ""
 
-    for err in SQL_ERROR_LIST:
-        if err and err in inj_body and err not in base_body:
-            return {"matched": True, "evidence": err}
+    for signature in SQL_ERROR_LIST:
+        match_inj = re.search(signature, inj_body, flags=re.IGNORECASE)
+        if match_inj and not re.search(signature, base_body, flags=re.IGNORECASE):
+            start = max(match_inj.start() - 200, 0)
+            end = min(match_inj.end() + 200, len(inj_body))
+            return {
+                "matched": True,
+                "evidence": inj_body[start:end],
+            }
 
     return {"matched": False, "evidence": ""}
 
@@ -103,16 +101,10 @@ def detect_sql_error(
 def detect_time_delay(
     base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
 ) -> Dict:
-    """
-    Сравнивает время ответа базового и инжектированного запросов.
-    Если разница превышает threshold_ms, считает уязвимостью.
-    """
-    delay_ms = injected.response_time - base.response_time
-    if delay_ms > TIME_DELAY_THRESHOLD_MS:
-        return {
-            "matched": True,
-            "evidence": f"Time delay: {delay_ms:.0f} ms",
-        }
+    """Сравнивает время ответа базового и инжектированного запросов."""
+    delay = injected.response_time - base.response_time
+    if delay > TIME_DELAY_THRESHOLD_MS:
+        return {"matched": True, "evidence": f"Time delay: {delay:.0f} ms"}
     return {"matched": False, "evidence": ""}
 
 
@@ -122,31 +114,20 @@ DETECTORS = (detect_sql_error, detect_patterns, detect_time_delay)
 def run_detectors(
     base: ResponseSnapshot, injected: ResponseSnapshot, payload: Payload
 ) -> List[Dict]:
-    """
-    Запускает все зарегистрированные детекторы для пары ответов.
-    Возвращает список словарей от детекторов, которые вернули matched=True.
-    """
-    results = []
-    for detector_func in DETECTORS:
+    """Запускает все детекторы и возвращает список сработавших."""
+    findings = []
+    for detector in DETECTORS:
         try:
-            res = detector_func(base, injected, payload)
-            if res and res.get("matched"):
-                results.append(res)
-                logger.info(
-                    "Detector matched",
-                    extra={
-                        "detector": detector_func.__name__,
-                        "payload_id": payload.payload_id,
-                        "evidence_preview": (res.get("evidence") or "")[:100],
-                    },
-                )
+            finding = detector(base, injected, payload)
+            if finding and finding.get("matched"):
+                findings.append(finding)
         except Exception as e:
             logger.exception(
                 "Error in detector",
                 extra={
-                    "detector": detector_func.__name__,
+                    "detector": detector.__name__,
                     "payload_id": payload.payload_id,
                     "error": str(e),
                 },
             )
-    return results
+    return findings

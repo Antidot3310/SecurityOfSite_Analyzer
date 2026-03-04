@@ -212,7 +212,10 @@ def scan_form(
 
 
 def scan_forms(
-    forms: List[dict], payloads: List[Payload], rate_limit: float = 1
+    forms: List[dict],
+    payloads: List[Payload],
+    rate_limit,
+    session: Optional[requests.Session],
 ) -> List[Finding]:
     """
     Сканирует список форм, используя общую сессию requests.
@@ -227,8 +230,10 @@ def scan_forms(
     """
     logger.info("Starting scan of %d forms", len(forms))
     all_findings: List[Finding] = []
+    if session is None:
+        session = requests.Session()
 
-    with requests.Session() as session:
+    try:
         for idx, form in enumerate(forms):
             form_id = form.get("form_id", f"index_{idx}")
             try:
@@ -248,7 +253,8 @@ def scan_forms(
                     extra={"form_id": form_id, "error": str(e)},
                 )
                 continue
-
+    finally:
+        session.close()
     logger.info(
         "Scan completed",
         extra={"forms_processed": len(forms), "total_findings": len(all_findings)},

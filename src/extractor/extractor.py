@@ -55,33 +55,14 @@ def extract_forms(html: str, url: str) -> Optional[List[Form]]:
         return None
     try:
         soup = BeautifulSoup(html, "html.parser")
-        page_js_hint = page_has_js(soup)
         forms = [
-            Form.from_soup_form(form_tag=f, url=url, page_js_hint=page_js_hint)
+            Form.from_soup_form(form_tag=f, url=url, page_js_hint=page_has_js(soup))
             for f in soup.find_all("form")
         ]
         return forms
     except Exception as e:
         logger.exception("Error extracting forms", extra={"url": url, "error": str(e)})
         return None
-
-
-def get_forms(url: str) -> Optional[List[Form]]:
-    """
-    Получает HTML по URL и извлекает из него формы.
-
-    Параметры:
-        url: адрес страницы
-
-    Возвращает:
-        Список объектов Form. Если HTML не удалось получить или произошла ошибка,
-        возвращается None.
-    """
-    html = fetch_html(url)
-    if html is None:
-        logger.warning("Cannot fetch HTML", extra={"url": url})
-        return None
-    return extract_forms(html, url)
 
 
 def page_has_js(soup) -> bool:

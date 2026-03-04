@@ -17,3 +17,16 @@ DEFAULT_DB_PATH = "data/data.db"
 
 # logging
 LOG_LEVEL = "DEBUG"
+
+# authentication
+LOGIN_PATH = "/login.php"
+SECURITY_COOKIE_NAME = "security"
+SECURITY_COOKIE_VALUE = "low"
+LOGIN_FORM_FIELDS = {"username", "password", "user_token"}
+LOGIN_BUTTON_NAME = "Login"
+LOGIN_BUTTON_VALUE = "Login"
+VERIFICATION_FAILURE_INDICATORS = [
+    "login.php",
+    'name="username"',
+    "csrf token is incorrect",
+]

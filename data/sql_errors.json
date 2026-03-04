@@ -46,5 +46,16 @@
     "database error",
     "query failed",
     "unknown column",
-    "table doesn't exist"
+    "table doesn't exist",
+    "mysqli_sql_exception",
+    "uncaught .*exception",
+    "uncaught mysqli_sql_exception",
+    "fatal error",
+    "sql syntax.*near",
+    "syntax error",
+    "warning: mysqli",
+    "warning: session_start",
+    "cannot modify header information",
+    "stack trace",
+    "sqlstate"
 ]
