@@ -1,244 +1,286 @@
-/* static/app.js — замените старый файл этим кодом */
-const qs = id => document.getElementById(id);
+const $ = id => document.getElementById(id)
 
-const statusEl = qs('status');
-const urlInput = qs('urlInput');
-const btnParse = qs('btnParse');
-const btnScan = qs('btnScan');
-const resultArea = qs('resultArea');
-const resultsBody = document.querySelector('#resultsTable tbody');
-const rawJson = qs('rawJson');
-const summary = qs('summary');
-const btnClear = qs('btnClear');
+const urlInput = $('urlInput')
+const btnParse = $('btnParse')
+const btnScan = $('btnScan')
+const btnClear = $('btnClear')
 
-function setBusy(busy, text) {
-  if (busy) {
-    statusEl.classList.remove('hidden');
-    statusEl.textContent = text || 'Выполняется...';
-    btnParse.disabled = btnScan.disabled = true;
-    resultArea.classList.add('hidden'); // прячем результаты на время запроса
+const resultArea = $('resultArea')
+const status = $('status')
+
+const aggArea = $('aggArea')
+const detailedArea = $('detailedArea')
+
+const resultsBody = document.querySelector('#resultsTable tbody')
+
+const rawJson = $('rawJson')
+const summary = $('summary')
+
+const btnBackSummary = $('btnBackSummary')
+const btnShowAll = $('btnShowAll')          // общая кнопка для перехода к таблице
+
+const leftTitle = $('leftTitle')
+
+let lastData = null
+
+
+
+/* ---------------- безопасность ---------------- */
+
+function escapeHtml(s) {
+  if (!s) return ""
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
+
+
+/* ---------------- utils ---------------- */
+
+function short(s, n = 140) {
+  if (!s) return "-"
+  s = String(s)
+  return s.length > n ? s.slice(0, n) + "…" : s
+}
+
+function pretty(o) {
+  return JSON.stringify(o, null, 2)
+}
+
+function setBusy(v) {
+  if (v) {
+    status.classList.remove("hidden")
+    resultArea.classList.add("hidden")
   } else {
-    statusEl.classList.add('hidden');
-    statusEl.textContent = '';
-    btnParse.disabled = btnScan.disabled = false;
+    status.classList.add("hidden")
   }
 }
 
-function showResultArea() {
-  resultArea.classList.remove('hidden');
-  resultArea.setAttribute('aria-hidden', 'false');
-}
-function hideResultArea() {
-  resultArea.classList.add('hidden');
-  resultArea.setAttribute('aria-hidden', 'true');
+function showResults() {
+  resultArea.classList.remove("hidden")
 }
 
-/* --- полезные функции для извлечения текста из возможных объектов --- */
 
-/**
- * Попытаться достать понятный текст из поля payload (которое может быть строкой или объектом).
- * Возвращает строку (не null/undefined). Не показывает "[object Object]" — если не получилось,
- * возвращает укороченную JSON-строку или '-'.
- */
-function extractPayloadText(v) {
-  if (v === null || v === undefined) return '-';
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
 
-  if (typeof v === 'object') {
-    // Часто объект полезной нагрузки имеет форму { payload: "...", payload_id: "...", ... }
-    if (typeof v.payload === 'string' && v.payload.trim() !== '') return v.payload;
-    if (typeof v.payload_text === 'string' && v.payload_text.trim() !== '') return v.payload_text;
-    if (typeof v.value === 'string' && v.value.trim() !== '') return v.value;
-    if (typeof v.raw === 'string' && v.raw.trim() !== '') return v.raw;
+/* ---------------- API ---------------- */
 
-    // иногда payload вложен ещё глубже: payload.payload
-    if (v.payload && typeof v.payload === 'object') {
-      const nested = extractPayloadText(v.payload);
-      if (nested !== '-') return nested;
-    }
+async function callApi(path, url) {
 
-    // fallback: сериализуем объект и вернём укороченную версию для таблицы
-    try {
-      const s = JSON.stringify(v);
-      return s.length > 180 ? s.slice(0, 180) + '…' : s;
-    } catch (e) {
-      return '[object]';
-    }
+  setBusy(true)
+
+  const r = await fetch(`${path}?url=${encodeURIComponent(url)}`)
+  const text = await r.text()
+
+  setBusy(false)
+
+  if (!r.ok) {
+    rawJson.textContent = text
+    return null
   }
 
-  return String(v);
-}
-
-/**
- * Аналогично для evidence — пытаемся вывести читабельный текст.
- */
-function extractEvidenceText(v) {
-  if (v === null || v === undefined) return '-';
-  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
-
-  if (typeof v === 'object') {
-    // Если это HTML/фрагмент — попробуем найти читаемые поля
-    if (typeof v.evidence === 'string' && v.evidence.trim() !== '') return v.evidence;
-    if (typeof v.ctx === 'string' && v.ctx.trim() !== '') return v.ctx;
-    if (typeof v.message === 'string' && v.message.trim() !== '') return v.message;
-
-    if (v.toString && v.toString() !== '[object Object]') {
-      try {
-        const s = v.toString();
-        if (s && s.length < 200) return s;
-      } catch (e) {}
-    }
-
-    // fallback: stringify (укороченно)
-    try {
-      const s = JSON.stringify(v);
-      return s.length > 300 ? s.slice(0, 300) + '…' : s;
-    } catch (e) {
-      return '[object]';
-    }
-  }
-
-  return String(v);
-}
-
-/* Короткий вид для таблицы (чтобы не раздувать столбцы) */
-function shortForTable(s, max = 120) {
-  if (!s && s !== 0) return '-';
-  const str = String(s);
-  return str.length > max ? (str.slice(0, max) + '…') : str;
-}
-
-/* --- рендеринг --- */
-function renderFindings(data) {
-  resultsBody.innerHTML = '';
-
-  const arr = data.findings || data.forms || [];
-  const total = arr.length;
-  const scanFindings = (data.findings_count !== undefined) ? data.findings_count : total;
-  summary.textContent = `Count: ${total}   Scan findings: ${scanFindings}`;
-
-  // отфильтруем очевидные мусорные записи
-  const filtered = arr.filter(it => {
-    const p = extractPayloadText(it.payload);
-    const e = extractEvidenceText(it.evidence);
-    if (p === '-' || e === '-') return false;
-    if (e === '[object]') return false;
-    return true;
-  });
-
-  if (filtered.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 3;
-    td.textContent = 'Нет подходящих записей для отображения.';
-    tr.appendChild(td);
-    resultsBody.appendChild(tr);
-    return;
-  }
-
-  filtered.forEach((it, idx) => {
-    const tr = document.createElement('tr');
-
-    const td0 = document.createElement('td');
-    td0.textContent = idx + 1;
-
-    const payloadTextFull = extractPayloadText(it.payload);
-    const td1 = document.createElement('td');
-    td1.textContent = shortForTable(payloadTextFull, 140);
-    td1.title = payloadTextFull; // тултип с полным содержимым
-
-    const evidenceTextFull = extractEvidenceText(it.evidence);
-    const td2 = document.createElement('td');
-    td2.textContent = shortForTable(evidenceTextFull, 180);
-    td2.title = evidenceTextFull;
-
-    tr.append(td0, td1, td2);
-
-    // клик — показать полную запись в raw JSON
-    tr.addEventListener('click', () => {
-      try { rawJson.textContent = JSON.stringify(it, null, 2); }
-      catch (e) { rawJson.textContent = String(it); }
-      showResultArea();
-    });
-
-    resultsBody.appendChild(tr);
-  });
-}
-
-/* --- общая функция вызова API --- */
-async function callApi(path, targetUrl) {
-  setBusy(true, 'Запрос к серверу...');
   try {
-    const full = `${path}?url=${encodeURIComponent(targetUrl)}`;
-    const r = await fetch(full, { method: 'GET' });
-    const txt = await r.text();
-
-    if (!r.ok) {
-      setBusy(false);
-      hideResultArea();
-      rawJson.textContent = `Ошибка ${r.status}\n\n${txt}`;
-      return null;
-    }
-
-    try {
-      const json = JSON.parse(txt);
-      setBusy(false);
-      showResultArea();
-      return json;
-    } catch (e) {
-      setBusy(false);
-      hideResultArea();
-      rawJson.textContent = txt;
-      return null;
-    }
-  } catch (e) {
-    setBusy(false);
-    hideResultArea();
-    rawJson.textContent = String(e);
-    return null;
+    return JSON.parse(text)
+  } catch {
+    rawJson.textContent = text
+    return null
   }
 }
 
-/* --- обработчики кнопок --- */
-btnParse.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (!url) {
-    setBusy(false);
-    statusEl.classList.remove('hidden');
-    statusEl.textContent = 'Введите URL';
-    return;
-  }
-  hideResultArea();
-  const data = await callApi('/api/parse', url);
-  if (!data) return;
-  renderFindings(data);
-  rawJson.textContent = JSON.stringify(data, null, 2);
-});
 
-btnScan.addEventListener('click', async () => {
-  const url = urlInput.value.trim();
-  if (!url) {
-    setBusy(false);
-    statusEl.classList.remove('hidden');
-    statusEl.textContent = 'Введите URL';
-    return;
-  }
-  hideResultArea();
-  const data = await callApi('/api/scan', url);
-  if (!data) return;
-  renderFindings(data);
-  rawJson.textContent = JSON.stringify(data, null, 2);
-});
 
-btnClear.addEventListener('click', () => {
-  resultsBody.innerHTML = '';
-  rawJson.textContent = '';
-  summary.textContent = '';
-  hideResultArea();
-  setBusy(false);
-});
+/* ---------------- clusters (краткий вид) ---------------- */
 
-/* начальное состояние */
-hideResultArea();
-urlInput.value = "";
-setBusy(false);
+function renderClusters(data) {
+
+  const agg = data.aggregated_findings || data
+  const clusters = agg.clusters || []
+
+  aggArea.innerHTML = ""
+
+  // Показываем только количество кластеров (убрали findings_count)
+  summary.textContent = `Clusters: ${clusters.length}`
+
+  clusters.forEach(c => {
+
+    const card = document.createElement("div")
+    card.className = "cluster-card"
+
+    const payload = escapeHtml(c.representative_payload || "")
+    const evidence = escapeHtml(c.representative_evidence || "")
+
+    card.innerHTML = `
+      <div class="cluster-top">
+        <div class="cluster-title">Cluster ${c.cluster_label}</div>
+        <div class="cluster-meta">
+          <span class="cluster-stat">${c.findings_count}</span>
+        </div>
+      </div>
+
+      <div class="cluster-body">
+        <b>Payload:</b><br>
+        ${payload}
+      </div>
+
+      <div class="cluster-body">
+        <b>Evidence:</b><br>
+        ${evidence}
+      </div>
+    `
+
+    aggArea.appendChild(card)
+  })
+
+  // Показываем общую кнопку "Показать всё", скрываем "Кратко"
+  btnShowAll.classList.remove("hidden")
+  btnBackSummary.classList.add("hidden")
+  leftTitle.textContent = "Краткая сводка"
+}
+
+
+
+/* ---------------- ВСЕ findings (подробный вид) ---------------- */
+
+function renderAllFindings(data) {
+
+  const findings = data.findings || []
+
+  aggArea.innerHTML = ""
+  detailedArea.classList.remove("hidden")
+
+  leftTitle.textContent = `Все findings (${findings.length})`
+
+  // В подробном виде показываем кнопку "Кратко", скрываем "Показать всё"
+  btnBackSummary.classList.remove("hidden")
+  btnShowAll.classList.add("hidden")
+
+  // Обновляем summary: только количество findings, без кластеров
+  summary.textContent = `Всего findings: ${findings.length}`
+
+  resultsBody.innerHTML = ""
+
+  findings.forEach((f,i)=>{
+
+    const payload =
+      escapeHtml(
+        f.payload?.payload ||
+        f.payload ||
+        ""
+      )
+
+    const evidence =
+      escapeHtml(
+        f.evidence ||
+        ""
+      )
+
+    const endpoint =
+      escapeHtml(
+        f.url ||
+        ""
+      )
+
+    const tr = document.createElement("tr")
+
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${short(payload,120)}</td>
+      <td>${short(evidence,200)}</td>
+      <td>${endpoint}</td>
+    `
+
+    tr.onclick = () => {
+      rawJson.textContent = pretty(f)
+    }
+
+    resultsBody.appendChild(tr)
+
+  })
+
+}
+
+
+
+/* ---------------- обработчики кнопок ---------------- */
+
+btnParse.onclick = async ()=>{
+
+  const url = urlInput.value.trim()
+  if(!url) return
+
+  const data = await callApi("/api/parse",url)
+  if(!data) return
+
+  lastData = data
+
+  rawJson.textContent = pretty(data)
+
+  renderClusters(data)
+
+  showResults()
+}
+
+
+
+btnScan.onclick = async ()=>{
+
+  const url = urlInput.value.trim()
+  if(!url) return
+
+  const data = await callApi("/api/scan",url)
+  if(!data) return
+
+  lastData = data
+
+  rawJson.textContent = pretty(data)
+
+  renderClusters(data)
+
+  showResults()
+}
+
+
+
+// Общая кнопка "Показать всё (таблица)" – переход к подробному виду
+btnShowAll.onclick = ()=>{
+  if(!lastData) return
+  renderAllFindings(lastData)
+}
+
+
+
+// Кнопка "Кратко" – возврат к кластерам
+btnBackSummary.onclick = ()=>{
+  if(!lastData) return
+
+  detailedArea.classList.add("hidden")
+  // перерисовываем кластеры
+  renderClusters(lastData)
+}
+
+
+
+btnClear.onclick = ()=>{
+
+  aggArea.innerHTML = ""
+  resultsBody.innerHTML = ""
+  rawJson.textContent = ""
+  summary.textContent = ""
+
+  resultArea.classList.add("hidden")
+
+  // скрываем обе кнопки переключения
+  btnShowAll.classList.add("hidden")
+  btnBackSummary.classList.add("hidden")
+}
+
+
+
+/* init */
+
+resultArea.classList.add("hidden")
+btnShowAll.classList.add("hidden")
+btnBackSummary.classList.add("hidden")
+urlInput.value = "http://127.0.0.1:4280/vulnerabilities/sqli/"

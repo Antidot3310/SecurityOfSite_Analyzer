@@ -2,14 +2,14 @@
 <html lang="ru">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Scanner</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
-  <div class="wrap">
+  <main class="wrap">
     <header>
       <p class="muted">
         Простой интерфейс: <strong>Парсить</strong> — получить формы, <strong>Сканировать</strong> — запустить полезные
@@ -18,25 +18,34 @@
     </header>
 
     <section class="controls">
-      <input id="urlInput" type="text" placeholder="Введите URL..." />
+      <input id="urlInput" type="text" placeholder="Введите URL...">
       <button id="btnParse">Парсить</button>
       <button id="btnScan">Сканировать</button>
     </section>
 
     <div id="status" class="hidden">Выполняется...</div>
 
-    <section id="resultArea" class="result-columns hidden" aria-hidden="true">
+    <section id="resultArea" class="result-columns hidden">
       <div class="left">
-        <h3>Результаты</h3>
-        <div id="summary" class="summary-line"></div>
+        <div class="result-header">
+          <h3 id="leftTitle">Краткая сводка</h3>
+          <div class="action-buttons">
+            <button id="btnShowAll" class="secondary hidden">Показать всё (таблица)</button>
+            <button id="btnBackSummary" class="secondary hidden">Кратко</button>
+          </div>
+        </div>
 
-        <div class="table-wrap">
+        <div id="summary" class="summary-line"></div>
+        <div id="aggArea" class="agg-list"></div>
+
+        <div class="table-wrap hidden" id="detailedArea">
           <table id="resultsTable" aria-label="Результаты сканирования">
             <thead>
               <tr>
                 <th>#</th>
-                <th>Полезная нагрузка</th>
-                <th>Доказательство</th>
+                <th>Payload</th>
+                <th>Evidence</th>
+                <th>URL</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -45,15 +54,14 @@
       </div>
 
       <div class="right">
-        <h3>Сырые данные (JSON)</h3>
+        <h3>Raw JSON</h3>
         <pre id="rawJson" class="json" aria-live="polite"></pre>
         <div class="clear-wrap">
           <button id="btnClear">Очистить</button>
         </div>
       </div>
     </section>
-  </div>
-
+  </main>
   <script src="/static/app.js"></script>
 </body>
 

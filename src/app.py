@@ -20,6 +20,7 @@ from src.extractor.auth import try_login_dvwa
 from src.storage.db import init_db, save_scan
 from src.scanner.scanner import scan_forms
 from src.scanner.types import load_payloads, Payload
+from src.ml.aggregator import prepare_and_cluster
 from src.config import RATE_LIMIT, PAYLOADS_PATH, DEFAULT_HEADER
 from src.logger import get_logger
 
@@ -108,10 +109,12 @@ def api_scan():
 
     forms = extract_forms_from_response(response)
     findings = perform_scan(forms, session)
+    aggregated_findings = prepare_and_cluster(findings)
 
     result_data = {
         "findings": findings,
         "findings_count": len(findings),
+        "aggregated_findings": aggregated_findings,
     }
     save_scan_results(target=url, results_json=json.dumps(result_data))
 

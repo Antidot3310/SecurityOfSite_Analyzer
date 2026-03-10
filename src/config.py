@@ -16,7 +16,7 @@ PAYLOADS_PATH = "data/payloads.json"
 DEFAULT_DB_PATH = "data/data.db"
 
 # logging
-LOG_LEVEL = "DEBUG"
+LOG_LEVEL = "INFO"
 
 # authentication
 LOGIN_PATH = "/login.php"

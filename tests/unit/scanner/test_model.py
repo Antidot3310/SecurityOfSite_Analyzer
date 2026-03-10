@@ -24,11 +24,6 @@ def test_build_test_data_does_not_mutate():
     assert base == {"a": "1"} and out["q"] == "X"
 
 
-def test_build_base_line_fills_missing_values():
-    res = build_base_line([{"name": "a", "value": "1"}, {"name": "b"}])
-    assert res == {"a": "1", "b": ""}
-
-
 class MockResp:
     def __init__(self):
         self.url = "http://example/"

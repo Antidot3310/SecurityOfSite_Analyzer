@@ -4,10 +4,15 @@
     --muted: #666;
     --accent: #1f6feb;
     --text: #111;
+    --accent-2: #0b84ff;
+    --secondary-btn: #eef6ff;
+    --border-light: #e6e9ef;
+    /* добавлена переменная для повторяющегося цвета */
+    --border-table: #e6eefc;
 }
 
 * {
-    box-sizing: border-box
+    box-sizing: border-box;
 }
 
 body {
@@ -20,111 +25,212 @@ body {
 .wrap {
     max-width: 1200px;
     margin: 18px auto;
-    padding: 14px
+    padding: 14px;
 }
 
 .muted {
     color: var(--muted);
-    margin: 0 0 8px
+    margin: 0 0 8px;
 }
 
+/* Панель управления */
 .controls {
     display: flex;
     gap: 8px;
     align-items: center;
-    margin: 12px 0
+    margin: 12px 0;
 }
 
 #urlInput {
     flex: 1;
     padding: 10px;
     border-radius: 6px;
-    border: 1px solid #d0d7de
+    border: 1px solid #d0d7de;
 }
 
+/* Кнопки */
 button {
     padding: 8px 12px;
     border-radius: 6px;
     border: 0;
     background: var(--accent);
     color: #fff;
-    cursor: pointer
+    cursor: pointer;
+}
+
+button.secondary {
+    background: var(--secondary-btn);
+    color: var(--accent-2);
+    border: 1px solid rgba(11, 132, 255, 0.12);
 }
 
 button:disabled {
-    opacity: .5;
-    cursor: default
+    opacity: 0.5;
+    cursor: default;
 }
 
-/* статус */
+/* Статус */
 .hidden {
-    display: none !important
+    display: none !important;
 }
 
 #status {
     margin: 8px 0;
     color: var(--accent);
-    font-weight: 600
+    font-weight: 600;
 }
 
-/* результат — две колонки */
+/* Две колонки */
 .result-columns {
     display: flex;
     gap: 12px;
     margin-top: 8px;
-    align-items: flex-start
+    align-items: flex-start;
+}
+
+/* Общие стили для левой и правой колонок */
+.left,
+.right {
+    background: var(--card);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
 }
 
 .left {
     flex: 1;
-    background: var(--card);
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #e6e9ef;
-    display: flex;
-    flex-direction: column
 }
 
 .right {
     flex: 0 0 360px;
     min-width: 280px;
-    background: var(--card);
-    padding: 10px;
+    gap: 8px;
+}
+
+/* Заголовок внутри результатов */
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Карточки кластеров */
+.agg-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.cluster-card {
     border-radius: 8px;
-    border: 1px solid #e6e9ef;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid var(--border-table);
+    box-shadow: 0 1px 0 rgba(16, 24, 40, 0.02);
     display: flex;
     flex-direction: column;
-    gap: 8px
+    gap: 8px;
 }
 
-/* таблица — обёртка для прокрутки */
+.cluster-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.cluster-title {
+    font-weight: 700;
+    color: #111;
+    font-size: 14px;
+}
+
+.cluster-meta {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.cluster-body {
+    font-size: 13px;
+    color: #222;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 8em;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.cluster-stat {
+    font-weight: 700;
+    color: var(--accent-2);
+}
+
+/* Таблица */
 .table-wrap {
     overflow: auto;
-    max-height: 520px
+    max-height: 520px;
+    margin-top: 8px;
 }
 
-table {
+#resultsTable {
+    table-layout: fixed;
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px
+    font-size: 13px;
+    word-wrap: break-word;
 }
+
+#resultsTable th,
+#resultsTable td {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    padding: 8px;
+    border-bottom: 1px solid #f3f6f8;
+    vertical-align: top;
+}
+
+/* Пропорции колонок таблицы (оставлены без изменений) */
+#resultsTable th:nth-child(1) {
+    width: 5%;
+}
+
+/* # */
+#resultsTable th:nth-child(2) {
+    width: 30%;
+}
+
+/* Payload */
+#resultsTable th:nth-child(3) {
+    width: 45%;
+}
+
+/* Evidence */
+#resultsTable th:nth-child(4) {
+    width: 20%;
+}
+
+/* URL */
 
 thead th {
     background: #f3f6fb;
     text-align: left;
-    padding: 8px;
-    border-bottom: 1px solid #e6eefc;
+    border-bottom: 1px solid var(--border-table);
     position: sticky;
-    top: 0
+    top: 0;
 }
 
-tbody td {
-    padding: 8px;
-    border-bottom: 1px solid #f3f6f8;
-    vertical-align: top
-}
-
-/* JSON блок */
+/* JSON */
 .json {
     max-height: 520px;
     overflow: auto;
@@ -133,36 +239,37 @@ tbody td {
     padding: 12px;
     border-radius: 6px;
     white-space: pre-wrap;
-    word-break: break-word
+    word-break: break-word;
 }
 
-/* очистка кнопки по центру */
+/* Кнопка очистки */
 .clear-wrap {
     display: flex;
     justify-content: center;
-    margin-top: 8px
+    margin-top: 8px;
 }
 
-/* mobile */
-@media (max-width:900px) {
+/* Краткая сводка */
+.summary-line {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+/* Мобильная адаптация */
+@media (max-width: 900px) {
     .result-columns {
-        flex-direction: column
+        flex-direction: column;
     }
 
     .right {
         flex: none;
         width: auto;
-        min-width: 0
+        min-width: 0;
     }
 
     .table-wrap,
     .json {
-        max-height: 360px
+        max-height: 360px;
     }
-}
-
-.summary-line {
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: #333
 }
