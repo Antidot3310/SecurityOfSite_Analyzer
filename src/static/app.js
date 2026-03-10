@@ -17,15 +17,12 @@ const rawJson = $('rawJson')
 const summary = $('summary')
 
 const btnBackSummary = $('btnBackSummary')
-const btnShowAll = $('btnShowAll')          // общая кнопка для перехода к таблице
+const btnShowAll = $('btnShowAll')
 
 const leftTitle = $('leftTitle')
 
 let lastData = null
 
-
-
-/* ---------------- безопасность ---------------- */
 
 function escapeHtml(s) {
   if (!s) return ""
@@ -35,10 +32,6 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
 }
-
-
-
-/* ---------------- utils ---------------- */
 
 function short(s, n = 140) {
   if (!s) return "-"
@@ -63,10 +56,6 @@ function showResults() {
   resultArea.classList.remove("hidden")
 }
 
-
-
-/* ---------------- API ---------------- */
-
 async function callApi(path, url) {
 
   setBusy(true)
@@ -89,10 +78,6 @@ async function callApi(path, url) {
   }
 }
 
-
-
-/* ---------------- clusters (краткий вид) ---------------- */
-
 function renderClusters(data) {
 
   const agg = data.aggregated_findings || data
@@ -100,7 +85,6 @@ function renderClusters(data) {
 
   aggArea.innerHTML = ""
 
-  // Показываем только количество кластеров (убрали findings_count)
   summary.textContent = `Clusters: ${clusters.length}`
 
   clusters.forEach(c => {
@@ -133,15 +117,10 @@ function renderClusters(data) {
     aggArea.appendChild(card)
   })
 
-  // Показываем общую кнопку "Показать всё", скрываем "Кратко"
   btnShowAll.classList.remove("hidden")
   btnBackSummary.classList.add("hidden")
   leftTitle.textContent = "Краткая сводка"
 }
-
-
-
-/* ---------------- ВСЕ findings (подробный вид) ---------------- */
 
 function renderAllFindings(data) {
 
@@ -152,11 +131,9 @@ function renderAllFindings(data) {
 
   leftTitle.textContent = `Все findings (${findings.length})`
 
-  // В подробном виде показываем кнопку "Кратко", скрываем "Показать всё"
   btnBackSummary.classList.remove("hidden")
   btnShowAll.classList.add("hidden")
 
-  // Обновляем summary: только количество findings, без кластеров
   summary.textContent = `Всего findings: ${findings.length}`
 
   resultsBody.innerHTML = ""
@@ -176,11 +153,6 @@ function renderAllFindings(data) {
         ""
       )
 
-    const endpoint =
-      escapeHtml(
-        f.url ||
-        ""
-      )
 
     const tr = document.createElement("tr")
 
@@ -188,7 +160,6 @@ function renderAllFindings(data) {
       <td>${i+1}</td>
       <td>${short(payload,120)}</td>
       <td>${short(evidence,200)}</td>
-      <td>${endpoint}</td>
     `
 
     tr.onclick = () => {
@@ -201,9 +172,6 @@ function renderAllFindings(data) {
 
 }
 
-
-
-/* ---------------- обработчики кнопок ---------------- */
 
 btnParse.onclick = async ()=>{
 
@@ -221,8 +189,6 @@ btnParse.onclick = async ()=>{
 
   showResults()
 }
-
-
 
 btnScan.onclick = async ()=>{
 
@@ -243,7 +209,6 @@ btnScan.onclick = async ()=>{
 
 
 
-// Общая кнопка "Показать всё (таблица)" – переход к подробному виду
 btnShowAll.onclick = ()=>{
   if(!lastData) return
   renderAllFindings(lastData)
@@ -251,12 +216,10 @@ btnShowAll.onclick = ()=>{
 
 
 
-// Кнопка "Кратко" – возврат к кластерам
 btnBackSummary.onclick = ()=>{
   if(!lastData) return
 
   detailedArea.classList.add("hidden")
-  // перерисовываем кластеры
   renderClusters(lastData)
 }
 
@@ -271,16 +234,14 @@ btnClear.onclick = ()=>{
 
   resultArea.classList.add("hidden")
 
-  // скрываем обе кнопки переключения
   btnShowAll.classList.add("hidden")
   btnBackSummary.classList.add("hidden")
 }
 
 
 
-/* init */
 
 resultArea.classList.add("hidden")
 btnShowAll.classList.add("hidden")
 btnBackSummary.classList.add("hidden")
-urlInput.value = "http://127.0.0.1:4280/vulnerabilities/sqli/"
+urlInput.value = "http://127.0.0.1:4280/vulnerabilities/xss_r/"

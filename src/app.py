@@ -64,9 +64,7 @@ def attempt_dvwa_login(session: requests.Session, url: str) -> None:
 
 
 def fetch_page(session: requests.Session, url: str) -> requests.Response:
-    """
-    Выполняет GET-запрос к целевому URL.
-    """
+    """Выполняет GET-запрос к целевому URL."""
     try:
         return session.get(url, allow_redirects=True)
     except requests.RequestException as e:
@@ -82,7 +80,7 @@ def extract_forms_from_response(response: requests.Response) -> list[dict]:
 
 def perform_scan(forms: list[dict], session: requests.Session) -> list[dict]:
     """Запускает сканирование форм с использованием загруженных полезных нагрузок."""
-    findings = scan_forms(forms, PAYLOADS, rate_limit=RATE_LIMIT, session=session)
+    findings = scan_forms(forms, PAYLOADS, RATE_LIMIT, session)
     return [f.to_dict() for f in findings]
 
 

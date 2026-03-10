@@ -12,7 +12,6 @@ from typing import List, Optional
 from bs4 import BeautifulSoup
 from src.extractor.models import Form
 from src.extractor.fetcher import fetch_info
-from src.extractor.render import render_html_with_playwright
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -28,10 +27,6 @@ def fetch_html(url: str) -> Optional[str]:
     Возвращает:
         HTML-код в виде строки или None, если запрос не удался.
     """
-    rendered = render_html_with_playwright(url)
-    if rendered:
-        return rendered
-    
     info = fetch_info(url)
     if info.get("ok"):
         return info.get("content")

@@ -7,7 +7,6 @@
     --accent-2: #0b84ff;
     --secondary-btn: #eef6ff;
     --border-light: #e6e9ef;
-    /* добавлена переменная для повторяющегося цвета */
     --border-table: #e6eefc;
 }
 
@@ -33,7 +32,6 @@ body {
     margin: 0 0 8px;
 }
 
-/* Панель управления */
 .controls {
     display: flex;
     gap: 8px;
@@ -48,7 +46,6 @@ body {
     border: 1px solid #d0d7de;
 }
 
-/* Кнопки */
 button {
     padding: 8px 12px;
     border-radius: 6px;
@@ -69,7 +66,6 @@ button:disabled {
     cursor: default;
 }
 
-/* Статус */
 .hidden {
     display: none !important;
 }
@@ -80,7 +76,6 @@ button:disabled {
     font-weight: 600;
 }
 
-/* Две колонки */
 .result-columns {
     display: flex;
     gap: 12px;
@@ -88,7 +83,6 @@ button:disabled {
     align-items: flex-start;
 }
 
-/* Общие стили для левой и правой колонок */
 .left,
 .right {
     background: var(--card);
@@ -109,7 +103,6 @@ button:disabled {
     gap: 8px;
 }
 
-/* Заголовок внутри результатов */
 .result-header {
     display: flex;
     justify-content: space-between;
@@ -124,7 +117,6 @@ button:disabled {
     align-items: center;
 }
 
-/* Карточки кластеров */
 .agg-list {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -176,7 +168,6 @@ button:disabled {
     color: var(--accent-2);
 }
 
-/* Таблица */
 .table-wrap {
     overflow: auto;
     max-height: 520px;
@@ -200,27 +191,22 @@ button:disabled {
     vertical-align: top;
 }
 
-/* Пропорции колонок таблицы (оставлены без изменений) */
 #resultsTable th:nth-child(1) {
     width: 5%;
 }
 
-/* # */
 #resultsTable th:nth-child(2) {
     width: 30%;
 }
 
-/* Payload */
 #resultsTable th:nth-child(3) {
     width: 45%;
 }
 
-/* Evidence */
 #resultsTable th:nth-child(4) {
     width: 20%;
 }
 
-/* URL */
 
 thead th {
     background: #f3f6fb;
@@ -230,7 +216,6 @@ thead th {
     top: 0;
 }
 
-/* JSON */
 .json {
     max-height: 520px;
     overflow: auto;
@@ -242,21 +227,18 @@ thead th {
     word-break: break-word;
 }
 
-/* Кнопка очистки */
 .clear-wrap {
     display: flex;
     justify-content: center;
     margin-top: 8px;
 }
 
-/* Краткая сводка */
 .summary-line {
     font-weight: 600;
     margin-bottom: 8px;
     color: #333;
 }
 
-/* Мобильная адаптация */
 @media (max-width: 900px) {
     .result-columns {
         flex-direction: column;

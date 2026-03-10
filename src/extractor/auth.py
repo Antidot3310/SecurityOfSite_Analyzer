@@ -45,7 +45,7 @@ def try_login_dvwa(
 
     Args:
         session: Сессия requests, в которой будет выполняться вход.
-        target_url: Базовый URL целевого приложения (например, http://localhost/dvwa/).
+        target_url: Базовый URL целевого приложения.
         username: Имя пользователя для входа.
         password: Пароль.
         timeout: Таймаут для HTTP-запросов в секундах.

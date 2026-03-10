@@ -43,15 +43,11 @@ def build_cluster(label: int, records: List[Dict]) -> Dict:
 def embed_texts(texts: Iterable[str]) -> np.ndarray:
     """Кодирование текстов в эмбеддинги."""
     model = get_model()
-    return model.encode(
-        list(texts), show_progress_bar=False
-    )  # convert_to_numpy=True по умолчанию
+    return model.encode(list(texts), show_progress_bar=False)
 
 
 def cluster_embeddings(embeddings: np.ndarray) -> List[int]:
     """Кластеризация эмбеддингов."""
-    if embeddings.size == 0:
-        return []
     clusterer = hdbscan.HDBSCAN(min_cluster_size=2, metric="euclidean")
     return clusterer.fit_predict(embeddings).tolist()
 
@@ -64,18 +60,15 @@ def prepare_and_cluster(findings: List[Dict]) -> Dict:
     if not findings:
         return {"clusters": [], "findings_count": 0}
 
-    # Подготовка текстов: payload + evidence
     texts = [get_payload_str(f) + " " + get_evidence(f) for f in findings]
 
     embeddings = embed_texts(texts)
     labels = cluster_embeddings(embeddings)
 
-    # Группировка по меткам
     groups = defaultdict(list)
     for label, finding in zip(labels, findings):
         groups[label].append(finding)
 
-    # Построение описаний кластеров
     clusters = [build_cluster(label, recs) for label, recs in groups.items()]
     clusters.sort(key=lambda x: x["findings_count"], reverse=True)
 
