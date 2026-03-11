@@ -43,13 +43,15 @@ def try_login_dvwa(
       4. Отправляет POST-запрос с данными для входа.
       5. Проверяет успешность входа, запрашивая целевой URL.
 
-    Args:
+    Параметры:
         session: Сессия requests, в которой будет выполняться вход.
         target_url: Базовый URL целевого приложения.
         username: Имя пользователя для входа.
         password: Пароль.
         timeout: Таймаут для HTTP-запросов в секундах.
 
+    Возвращает:
+        True, если вход выполнен успешно, иначе False.
     """
     try:
         login_url = urljoin(target_url, LOGIN_PATH)
@@ -77,7 +79,12 @@ def try_login_dvwa(
 
 
 def set_security_cookie(session: requests.Session) -> None:
-    """Устанавливает cookie security=low для переключения DVWA в низкий уровень безопасности."""
+    """
+    Устанавливает cookie security=low для переключения DVWA в низкий уровень безопасности.
+
+    Параметры:
+        session: Сессия requests, в которую добавляется cookie.
+    """
     try:
         session.cookies.set(SECURITY_COOKIE_NAME, SECURITY_COOKIE_VALUE, path="/")
     except Exception as e:
@@ -90,7 +97,18 @@ def set_security_cookie(session: requests.Session) -> None:
 def fetch_login_page(
     session: requests.Session, login_url: str, timeout: int
 ) -> Optional[requests.Response]:
-    """Запрашивает страницу входа и возвращает ответ при успехе, иначе None."""
+    """
+    Запрашивает страницу входа и возвращает ответ при успехе.
+
+    Параметры:
+        session: Сессия requests для выполнения GET-запроса.
+        login_url: Полный URL страницы входа.
+        timeout: Таймаут запроса в секундах.
+
+    Возвращает:
+        Объект Response при успешном получении страницы (статус 200),
+        иначе None.
+    """
     try:
         response = session.get(login_url, timeout=timeout)
         if response.status_code != 200:
@@ -109,12 +127,33 @@ def fetch_login_page(
 
 
 def is_login_form(form: Form) -> bool:
-    """Проверяет, является ли форма формой входа (содержит поля username или user_token)."""
+    """
+    Проверяет, является ли форма формой входа.
+
+    Форма считается формой входа, если содержит хотя бы одно из полей,
+    перечисленных в LOGIN_FORM_FIELDS (например, username или user_token).
+
+    Параметры:
+        form: Объект Form для анализа.
+
+    Возвращает:
+        True, если форма содержит поля входа, иначе False.
+    """
     return any(inp.name in LOGIN_FORM_FIELDS for inp in form.inputs if inp.name)
 
 
 def extract_login_form(html_text: str, page_url: str) -> Optional[Form]:
-    """Извлекает форму входа из HTML-кода страницы."""
+    """
+    Извлекает форму входа из HTML-кода страницы.
+
+    Параметры:
+        html_text: HTML-код страницы в виде строки.
+        page_url: URL страницы (используется для построения абсолютных ссылок).
+
+    Возвращает:
+        Объект Form, соответствующей форме входа, или None, если форма не найдена
+        или произошла ошибка при извлечении форм.
+    """
     forms = extract_forms(html_text, page_url)
     if not forms:
         logger.warning("No forms found on login page", extra={"url": page_url})
@@ -127,7 +166,21 @@ def extract_login_form(html_text: str, page_url: str) -> Optional[Form]:
 
 
 def build_login_payload(form: Form, username: str, password: str) -> dict:
-    """Формирует словарь данных для POST-запроса входа."""
+    """
+    Формирует словарь данных для POST-запроса входа.
+
+    Включает все поля исходной формы (например, CSRF-токен),
+    добавляет переданные имя пользователя и пароль,
+    а также при необходимости значение кнопки отправки.
+
+    Параметры:
+        form: Объект Form, из которого берутся поля.
+        username: Имя пользователя.
+        password: Пароль.
+
+    Возвращает:
+        Словарь с данными формы для POST-запроса.
+    """
     payload = {inp.name: inp.value for inp in form.inputs if inp.name}
     payload.update({"username": username, "password": password})
     payload.setdefault(LOGIN_BUTTON_NAME, LOGIN_BUTTON_VALUE)
@@ -137,7 +190,15 @@ def build_login_payload(form: Form, username: str, password: str) -> dict:
 def submit_login_form(
     session: requests.Session, action_url: str, data: dict, timeout: int
 ) -> None:
-    """Отправляет POST-запрос с данными формы входа."""
+    """
+    Отправляет POST-запрос с данными формы входа.
+
+    Параметры:
+        session: Сессия requests для выполнения POST-запроса.
+        action_url: URL, на который отправляется форма.
+        data: Словарь с данными формы.
+        timeout: Таймаут запроса в секундах.
+    """
     try:
         session.post(
             action_url,
@@ -156,7 +217,20 @@ def submit_login_form(
 def verify_login_success(
     session: requests.Session, target_url: str, timeout: int
 ) -> bool:
-    """Проверяет, успешно ли выполнен вход, запрашивая целевой URL."""
+    """
+    Проверяет, успешно ли выполнен вход, запрашивая целевой URL.
+
+    Проверка осуществляется по отсутствию в ответе (URL или тексте)
+    индикаторов неуспешного входа, заданных в VERIFICATION_FAILURE_INDICATORS.
+
+    Параметры:
+        session: Сессия requests для выполнения GET-запроса.
+        target_url: Целевой URL, доступный только после входа.
+        timeout: Таймаут запроса в секундах.
+
+    Возвращает:
+        True, если вход выполнен успешно, иначе False.
+    """
     try:
         response = session.get(target_url, timeout=timeout)
     except requests.RequestException as e:

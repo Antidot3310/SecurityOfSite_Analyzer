@@ -66,7 +66,9 @@ def attempt_dvwa_login(session: requests.Session, url: str) -> None:
 def fetch_page(session: requests.Session, url: str) -> requests.Response:
     """Выполняет GET-запрос к целевому URL."""
     try:
-        return session.get(url, allow_redirects=True)
+        response = session.get(url, allow_redirects=True)
+        response.raise_for_status()  
+        return response
     except requests.RequestException as e:
         logger.exception("Failed to fetch target", extra={"url": url, "error": str(e)})
         raise

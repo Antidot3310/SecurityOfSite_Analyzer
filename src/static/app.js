@@ -45,10 +45,11 @@ function pretty(o) {
 
 function setBusy(v) {
   if (v) {
-    status.classList.remove("hidden")
-    resultArea.classList.add("hidden")
+    status.textContent = "Выполняется...";
+    status.classList.remove("hidden");
+    resultArea.classList.add("hidden");
   } else {
-    status.classList.add("hidden")
+    status.classList.add("hidden");
   }
 }
 
@@ -57,24 +58,29 @@ function showResults() {
 }
 
 async function callApi(path, url) {
+  setBusy(true);
 
-  setBusy(true)
+  const r = await fetch(`${path}?url=${encodeURIComponent(url)}`);
+  const text = await r.text();
 
-  const r = await fetch(`${path}?url=${encodeURIComponent(url)}`)
-  const text = await r.text()
-
-  setBusy(false)
+  setBusy(false); 
 
   if (!r.ok) {
-    rawJson.textContent = text
-    return null
+    rawJson.textContent = text;                
+    showResults();                            
+    status.textContent = `Ошибка ${r.status}: ${r.statusText}`;
+    status.classList.remove("hidden");          
+    return null;
   }
 
   try {
-    return JSON.parse(text)
+    return JSON.parse(text);
   } catch {
-    rawJson.textContent = text
-    return null
+    rawJson.textContent = text;
+    showResults();
+    status.textContent = "Ошибка: ответ сервера не является JSON";
+    status.classList.remove("hidden");
+    return null;
   }
 }
 
