@@ -252,3 +252,64 @@ def verify_login_success(
 
     logger.info("Login successful", extra={"target_url": target_url})
     return True
+
+
+def try_login_bwapp(
+    session: requests.Session,
+    target_url: str,
+    username: str = "bee",
+    password: str = "bug",
+    timeout: int = 8,
+) -> bool:
+    """
+    Attempts to log into bWAPP using existing helper functions.
+
+    Steps:
+        1. Fetch login page with fetch_login_page.
+        2. Extract all forms with extract_forms.
+        3. Find a form containing an input named 'login'.
+        4. Build payload manually (keep all original fields, override login/password).
+        5. Submit POST request directly (since build_login_payload is DVWA-specific).
+        6. Verify success with verify_login_success.
+    """
+    try:
+        login_url = "http://localhost/bWAPP/login.php"
+
+        login_page_response = fetch_login_page(session, login_url, timeout)
+        if login_page_response is None:
+            return False
+
+        forms = extract_forms(login_page_response.text, login_url)
+        if not forms:
+            logger.warning(
+                "No forms found on bWAPP login page", extra={"url": login_url}
+            )
+            return False
+
+        login_form = None
+        for form in forms:
+            if any(inp.name == "login" for inp in form.inputs if inp.name):
+                login_form = form
+                break
+
+        if not login_form:
+            logger.warning(
+                "No login form with 'login' field found", extra={"url": login_url}
+            )
+            return False
+
+        payload = {inp.name: inp.value for inp in login_form.inputs if inp.name}
+        payload["login"] = username
+        payload["password"] = password
+        payload["security_level"] = "0"
+        payload["form"] = "submit"
+
+        submit_login_form(session, login_form.action, payload, timeout)
+
+        return verify_login_success(session, target_url, timeout)
+    except Exception as e:
+        logger.exception(
+            "Unexpected error during BWAPP login attempt",
+            extra={"target_url": target_url, "error": str(e)},
+        )
+        return False

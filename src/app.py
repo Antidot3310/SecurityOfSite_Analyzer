@@ -16,7 +16,7 @@ import requests
 from flask import Flask, request, jsonify
 
 from src.extractor.extractor import extract_forms
-from src.extractor.auth import try_login_dvwa
+from src.extractor.auth import try_login_dvwa, try_login_bwapp
 from src.storage.db import init_db, save_scan
 from src.scanner.scanner import scan_forms
 from src.scanner.types import load_payloads, Payload
@@ -63,6 +63,13 @@ def attempt_dvwa_login(session: requests.Session, url: str) -> None:
         logger.exception("DVWA autologin failed", extra={"url": url})
 
 
+def attempt_bwapp_login(session: requests.Session, url: str) -> None:
+    try:
+        try_login_bwapp(session, url)
+    except Exception:
+        logger.exception("bWAPP autologin failed", extra={"url": url})
+
+
 def fetch_page(session: requests.Session, url: str) -> requests.Response:
     """Выполняет GET-запрос к целевому URL."""
     try:
@@ -100,7 +107,8 @@ def api_scan():
         return jsonify({"error": ERROR_SCANNER_NOT_INIT}), 500
 
     session = prepare_session()
-    attempt_dvwa_login(session, url)
+    if not attempt_dvwa_login(session, url):
+        attempt_bwapp_login(session, url)
 
     try:
         response = fetch_page(session, url)
@@ -131,7 +139,8 @@ def api_parse():
         return jsonify({"error": ERROR_MISSING_URL}), 400
 
     session = prepare_session()
-    attempt_dvwa_login(session, url)
+    if not attempt_dvwa_login(session, url):
+        attempt_bwapp_login(session, url)
 
     try:
         response = fetch_page(session, url)
