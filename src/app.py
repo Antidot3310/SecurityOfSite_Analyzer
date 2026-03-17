@@ -15,7 +15,7 @@ import json
 import requests
 from flask import Flask, request, jsonify
 
-from src.extractor.extractor import extract_forms
+from src.extractor.extractor import extract_forms, fetch_html
 from src.extractor.auth import try_login_dvwa, try_login_bwapp
 from src.storage.db import init_db, save_scan
 from src.scanner.scanner import scan_forms
@@ -70,20 +70,9 @@ def attempt_bwapp_login(session: requests.Session, url: str) -> None:
         logger.exception("bWAPP autologin failed", extra={"url": url})
 
 
-def fetch_page(session: requests.Session, url: str) -> requests.Response:
-    """Выполняет GET-запрос к целевому URL."""
-    try:
-        response = session.get(url, allow_redirects=True)
-        response.raise_for_status()  
-        return response
-    except requests.RequestException as e:
-        logger.exception("Failed to fetch target", extra={"url": url, "error": str(e)})
-        raise
-
-
-def extract_forms_from_response(response: requests.Response) -> list[dict]:
+def extract_forms_from_response(html: str, url: str) -> list[dict]:
     """Извлекает формы из HTML-ответа и возвращает их в виде списка словарей."""
-    forms = extract_forms(response.text, response.url)
+    forms = extract_forms(html, url)
     return [f.to_dict() for f in forms]
 
 
@@ -111,11 +100,11 @@ def api_scan():
         attempt_bwapp_login(session, url)
 
     try:
-        response = fetch_page(session, url)
+        html = fetch_html(url, session)
     except requests.RequestException as e:
         return jsonify({"error": ERROR_FETCH_FAILED, "reason": str(e)}), 400
 
-    forms = extract_forms_from_response(response)
+    forms = extract_forms_from_response(html, url)
     findings = perform_scan(forms, session)
     aggregated_findings = prepare_and_cluster(findings)
 
@@ -143,11 +132,11 @@ def api_parse():
         attempt_bwapp_login(session, url)
 
     try:
-        response = fetch_page(session, url)
+        html = fetch_html(url, session)
     except requests.RequestException as e:
         return jsonify({"error": ERROR_FETCH_FAILED, "reason": str(e)}), 400
 
-    forms = extract_forms_from_response(response)
+    forms = extract_forms_from_response(html, url)
 
     result_data = {
         "forms": forms,

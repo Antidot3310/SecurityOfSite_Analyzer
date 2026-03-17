@@ -8,6 +8,7 @@
     extract_forms() - извлекает формы из страницы в виде списка объектов Form
 """
 
+import requests
 from typing import List, Optional
 from bs4 import BeautifulSoup
 from src.extractor.models import Form
@@ -17,17 +18,18 @@ from src.logger import get_logger
 logger = get_logger(__name__)
 
 
-def fetch_html(url: str) -> Optional[str]:
+def fetch_html(url: str, session: Optional[requests.Session] = None) -> Optional[str]:
     """
     Получает HTML-код страницы по указанному URL.
 
     Параметры:
         url: адрес страницы
+        session: текущая сессия (для правильной аутентификации)
 
     Возвращает:
         HTML-код в виде строки или None, если запрос не удался.
     """
-    info = fetch_info(url)
+    info = fetch_info(url, session)
     if info.get("ok"):
         return info.get("content")
     return None

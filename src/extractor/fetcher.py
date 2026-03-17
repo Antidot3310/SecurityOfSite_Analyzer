@@ -103,21 +103,24 @@ def fetch_local_file(file_path: str) -> Dict[str, Any]:
         return create_response(url=file_path, error=f"File read error: {e}")
 
 
-def fetch_web(url: str) -> FetchResponse:
+def fetch_web(url: str, session: requests.Session) -> FetchResponse:
     """
     Обрабатывает  запросы на веб ресурсам.
 
     Параметры:
         url: URL целевого ресурса
+        session: текущая сессия (для правильной аутентификации)
 
     Возвращает:
         Словарь-ответ (create_response).
     """
     try:
-        resp = requests.get(
+        if (session == None):
+            logger.error("No session for web", extra={"url": url})
+            return create_response(url=url, status=None)
+        resp = session.get(
             url,
-            timeout=REQUEST_TIMEOUT,
-            headers=DEFAULT_HEADER,
+            allow_redirects=True
         )
         resp.raise_for_status()
 
@@ -135,12 +138,13 @@ def fetch_web(url: str) -> FetchResponse:
         return create_response(url=url, status=None, error=str(e))
 
 
-def fetch_info(url: str) -> FetchResponse:
+def fetch_info(url: str, session: Optional[requests.Session] = None) -> FetchResponse:
     """
     Отправляет запрос к целевому ресурсу и возвращает результат.
 
     Параметры:
         url: URL целевого ресурса
+        session: текущая сессия (для правильной аутентификации)
 
     Возвращает:
         Словарь-ответ (create_response).
@@ -154,7 +158,7 @@ def fetch_info(url: str) -> FetchResponse:
         scheme = parsed.scheme.lower()
 
         if scheme in ("http", "https"):
-            return fetch_web(url)
+            return fetch_web(url, session)
 
         if scheme == "file":
             path = url_to_path(url)
@@ -165,7 +169,7 @@ def fetch_info(url: str) -> FetchResponse:
             logger.warning(
                 "trying http fallback", extra={"original": url, "tried": tried_url}
             )
-            return fetch_web(tried_url)
+            return fetch_web(tried_url, session)
 
     except Exception as e:
         logger.exception(

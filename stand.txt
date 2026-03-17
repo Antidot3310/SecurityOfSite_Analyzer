@@ -1,0 +1,9 @@
+url's:
+    http://127.0.0.1:5000/api/scan?url=http://127.0.0.1:4280/vulnerabilities/sqli/  
+    http://127.0.0.1:5000/api/scan?url=http://127.0.0.1:4280/vulnerabilities/xss_r/
+    http://127.0.0.1:5000/api/parse?url=http://127.0.0.1:4280/vulnerabilities/xss_r/
+examples:
+    http://127.0.0.1:4280/vulnerabilities/sqli/
+    http://127.0.0.1:4280/vulnerabilities/xss_r/
+    http://localhost/bWAPP/sqli_11.php
+    http://localhost/bWAPP/xss_get.php
